@@ -1,6 +1,6 @@
 # shitx-flood
 
-A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. Junk falls in and floats or sinks. Past 60% the page audio gets muffled. At 100% you can't click anything until you get the water out, and there are two ways to do that: **tilt the screen** so it pours off the edge, or **scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water.
+A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. Past 60% the page audio gets muffled. When water above 60% starts pouring, a mouse runs across the screen. At 100% you can't click anything until you get the water out, and there are two ways to do that: **tilt the screen** so it pours off the edge, or **scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water.
 
 ## Install (dev)
 
@@ -15,8 +15,8 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 | Prompt detection | On a supported chat site, pressing Enter in the composer (when it has text) or clicking the send button adds **12%** to the water level. Enter + a send click within 600 ms count once. |
 | Speed multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. Rise speed = `0.03` viewport heights/sec × N. |
 | Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
-| Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). Water rises, sloshes, makes waves when things fall in, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
-| Floating junk | Each prompt drops 1–2 random objects (🦆 🩴 🍌 🪵 🧻 🧦 🍕 🥥 💩 📱 🔑 🪨 🥫 👟), plus one every 20–45 s. Each has a density: light ones bob on the waves and lean with the surface, heavy ones sink and slide along the bottom when tilted, soggy ones (🧻 🧦 🍕) soak up water and drown, bubbling. Floating junk washes out with the water when you pour. Junk left stranded on a dry screen fades out after 4 s. |
+| Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
+| Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
 | Muffled audio | From **60% to 70%**, page `<audio>`/`<video>` goes through a Web Audio lowpass filter whose cutoff falls from 20 kHz to 300 Hz. It stays at 300 Hz above 70%. |
 | 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging anywhere tilts the screen. |
 
@@ -71,17 +71,17 @@ The popup also has a small **cheat: drain everything** link for testing.
 ```
 manifest.json            MV3 manifest; lists the content scripts in load order
 src/
-  config.js              tuning knobs (all constants, per-site rate tables, junk list)
+  config.js              tuning knobs (all constants and per-site rate tables)
   core.js                shared water state, storage sync, canvas, frame loop, flood(), drain(), hooks
   sim.js                 shallow-water height field: waves, tilt, pouring; surfaceAt(), splash(), simRemove()…
   drains/
     camera.js            webcam tilt estimate (edge orientation histogram)
     tilt.js              combines camera + motion sensor + drag into sim.tiltTarget
   effects/
-    objects.js           floating / sinking junk
     waves.js             draws the water + page blur
     drops.js             spray droplets, bubbles, the pour off a tilted edge
     scoop.js             the 🪣 for each Joy-Con scoop
+    mouse.js             a stream of 🐭 runs across the screen when high water starts pouring
     percent.js           "💧 NN%" label
     lockout.js           100% click block + LOCK_MESSAGE
     dock.js              bottom-left 🫗 tilt grip + 📷 CAMERA panel (shadow DOM)
@@ -113,7 +113,7 @@ src/
 - `GRAVITY`, `WAVE_DAMP`, `VISCOSITY`, `COL`: how the water moves (faster sloshing, calmer, smoother, resolution).
 - `TILT_LIP` (16°), `MAX_TILT` (45°), `SPILL_RATE`, `MAX_POUR`: pouring.
 - `CAM_MAX_ANGLE`, `CAM_MIN_CONFIDENCE`, `CAM_SHOW_AT`: webcam tilt.
-- `OBJECTS`, `MAX_OBJECTS`: the junk list (`density` < 1 floats, `soak` makes it drown slowly).
+- `MOUSE_SHOW_AT`: minimum water level for the running mouse to appear while pouring (default `0.6`).
 - `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.6` / `0.7`).
 - `LOCK_MESSAGE`: text shown at 100%.
 - Joy-Con: `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT` at the top of `src/joycon/joycon.js`.

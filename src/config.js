@@ -36,27 +36,9 @@ const MAX_TILT = 45 * Math.PI / 180; // tilt is clamped to ±45°
 const TILT_LIP = 16 * Math.PI / 180; // tilt past ~16° and water pours off the low edge of the screen
 const SPILL_RATE = 0.12; // how fast it pours (weir coefficient)
 const MAX_POUR = 0.12 / 0.9; // pour cap: 12% of the screen per 0.9 s
+const MOUSE_SHOW_AT = 0.4; // show a running mouse when pouring starts above this water level
 
 // Webcam tilt (drains/camera.js): the angle of strong straight edges in the webcam image vs. a level reference.
 const CAM_MAX_ANGLE = 28; // degrees; the camera estimate is clamped to ±28°
 const CAM_MIN_CONFIDENCE = 0.12;
 const CAM_SHOW_AT = 0.1; // the 📷 CAMERA button appears once the water is this high
-
-// Floating / sinking junk. density < 1 floats, > 1 sinks; soak > 0 = absorbs water and slowly sinks.
-const MAX_OBJECTS = 24;
-const OBJECTS = [
-  { e: '🦆', size: 34, density: 0.35 },
-  { e: '🩴', size: 30, density: 0.45 },
-  { e: '🍌', size: 30, density: 0.7 },
-  { e: '🪵', size: 38, density: 0.6 },
-  { e: '🧻', size: 30, density: 0.5, soak: 0.12 },
-  { e: '🧦', size: 28, density: 0.8, soak: 0.08 },
-  { e: '🍕', size: 30, density: 0.9, soak: 0.05 },
-  { e: '🥥', size: 30, density: 0.85 },
-  { e: '💩', size: 30, density: 1.08 },
-  { e: '📱', size: 28, density: 2.2 },
-  { e: '🔑', size: 24, density: 4 },
-  { e: '🪨', size: 32, density: 2.6 },
-  { e: '🥫', size: 28, density: 1.6 },
-  { e: '👟', size: 32, density: 1.15 },
-];
