@@ -1,6 +1,6 @@
 # shitx-flood
 
-A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. Past 60% the page audio gets muffled. When water above 60% starts pouring, a mouse runs across the screen. At 100% you can't click anything until you get the water out. There are five ways to do that, all as buttons in the **bottom-left dock** of every flooded page: **🫗 drag** to tilt the screen so it pours off the edge, **📷 tilt the laptop** (the webcam notices), **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water, **🌬️ blow it away** through the microphone (louder = faster), or **👄 drink it** by holding your mouth open to the webcam.
+A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. From 45% the page audio gets muffled and quieter until it's silent at 100%. At 80% the chat box on supported chat sites stops taking clicks and typing. When water above 60% starts pouring, a mouse runs across the screen. At 100% you can't click anything until you get the water out. There are four ways to do that, all as buttons in the **bottom-left dock** of every flooded page: **📷 tilt the laptop** so it pours off the edge (the webcam notices), **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water, **🌬️ blow it away** through the microphone (louder = faster), or **👄 drink it** by holding your mouth open to the webcam.
 
 ## Install (dev)
 
@@ -17,9 +17,10 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 | Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
 | Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). One simulation runs for every tab, in the extension's offscreen document (`src/offscreen/`), in a fixed 1600×900 tank. Each visible tab gets its height field ~60 times a second and stretches it to its own window, so all tabs show the same waves. Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
 | Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
-| Muffled audio | From **60% to 70%**, page `<audio>`/`<video>` goes through a Web Audio lowpass filter whose cutoff falls from 20 kHz to 300 Hz. It stays at 300 Hz above 70%. |
-| 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging anywhere tilts the screen. The bottom-left dock stays clickable. |
-| Drain dock | Bottom-left of every page once there's water: 🫗 (drag grip, shows the tilt), 📷 TILT CAM, 🎮 JOY-CON, 🌬️ BLOW, 👄 DRINK. Active ones turn green and get a panel above the buttons (preview / meter, status, Stop). |
+| Muffled audio | From **45% to 100%**, page `<audio>`/`<video>` goes through a Web Audio lowpass filter (cutoff 20 kHz → 300 Hz) and a volume fade (1 − k², silent at 100%). |
+| Chat box lock | From **80%**, the composer on supported chat sites is greyed out and refuses clicks, focus, typing, paste and drop. It unlocks when the water drops below 80%. |
+| 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging on the page does nothing; only the bottom-left dock stays clickable. |
+| Drain dock | Bottom-left of every page once there's water: 📷 TILT CAM, 🎮 JOY-CON, 🌬️ BLOW, 👄 DRINK. Active ones turn green and get a panel above the buttons (preview / meter, status, Stop). |
 
 ### Supported chat sites
 
@@ -42,7 +43,7 @@ Matching is a plain substring check on the lowercased label, and the first hit w
 
 ## Draining
 
-Five ways, all in the bottom-left dock: tilt by dragging or with the webcam (1), Joy-Con (2), blow (3), drink (4).
+Four ways, all in the bottom-left dock: tilt with the webcam (1), Joy-Con (2), blow (3), drink (4).
 
 ### 1. Tilt the screen
 
@@ -52,7 +53,6 @@ Water stays level with the ground, so tilting the screen makes the surface slope
   - It's a visual estimate, not a measurement. Point the webcam at something with straight lines (door frame, window, shelf), not a blank wall.
   - Frames are analysed locally in the page and never stored or sent. The camera permission is per site, because the content script runs in the page.
 - **Motion sensor**: on devices that have one (tablets, 2-in-1s, Chromebooks), `devicemotion` gravity is used directly.
-- **Drag**: drag the 🫗 grip in the dock left/right (half the screen width ≈ 45°). At 100% you can drag anywhere. Let go and the screen swings back upright.
 
 Only the focused tab sends its tilt to the shared simulation, and it drops back to 0 when the tab loses focus. A pour happens once, in the shared simulation, which writes the new level.
 
@@ -99,7 +99,7 @@ src/
                          (stepped only in offscreen/; tabs read it through surfaceAt() etc.)
   drains/
     camera.js            webcam tilt estimate (edge orientation histogram)
-    tilt.js              combines camera + motion sensor + drag; the focused tab sends it to the shared sim
+    tilt.js              combines camera + motion sensor; the focused tab sends it to the shared sim
     blow.js              microphone loudness → blowing strength → drainAt('blow')
     drink.js             webcam mouth-open detection (FaceDetector or guide box) → drainAt('drink')
   effects/
@@ -110,7 +110,7 @@ src/
     mouse.js             a stream of 🐭 runs across the screen when high water starts pouring
     percent.js           "💧 NN%" label
     lockout.js           100% click block + LOCK_MESSAGE
-    dock.js              bottom-left dock with all 5 drains: 🫗 grip, 📷, 🎮, 🌬️, 👄 + their panels (shadow DOM)
+    dock.js              bottom-left dock with the drains: 📷, 🎮, 🌬️, 👄 + their panels (shadow DOM)
     muffle.js            lowpass audio muffling
   chat.js                chatSite(): shared prompt detection + speed badge
   systems/
@@ -144,7 +144,8 @@ src/
 - `BLOW_RATE`, `BLOW_START_DB`, `BLOW_RANGE_DB`: blowing.
 - `DRINK_RATE`, `DRINK_OPEN`, `DRINK_RANGE`: drinking.
 - `MOUSE_SHOW_AT`: minimum water level for the running mouse to appear while pouring (default `0.6`).
-- `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.6` / `0.7`).
+- `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.45` / `1`: lowpass 20 kHz → 300 Hz and volume fading to silent).
+- `INPUT_LOCK_AT`: level where chat composers are locked (default `0.8`).
 - `LOCK_MESSAGE`: text shown at 100%.
 - Joy-Con: `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT` at the top of `src/joycon/joycon.js`.
 
@@ -153,7 +154,7 @@ src/
 - **Chat site selectors may break.** All three apps ship UI changes often. ChatGPT's model switcher selector isn't confirmed (the badge falls back to ×1 if it's not found). The "other sites" list uses generic guesses and hasn't been checked against the live sites.
 - **Effort detection is a guess.** It only works if the effort appears in the model selector's label text.
 - **Attachment-only prompts** sent with Enter (no text) aren't counted.
-- **Webcam tilt is an estimate.** It drifts with blank walls, moving backgrounds or strongly diagonal scenes; recalibrate or drag instead. Some sites block the camera with a Permissions-Policy, and then only drag/sensor tilt works there.
+- **Webcam tilt is an estimate.** It drifts with blank walls, moving backgrounds or strongly diagonal scenes; recalibrate, or use another drain. Some sites block the camera with a Permissions-Policy, and then only the motion sensor tilts there.
 - **Joy-Con**: WebHID only (Chrome/Edge desktop). The scooper window must stay open. The dip/flip axis follows the Joy-Con tester's frame (x = toward the shoulder buttons). If it feels reversed on your controller, tick **Flip tip direction**. Uses default IMU scaling, not the factory calibration from SPI.
 - **Audio muffling misses some sound:** cross-origin media without CORS (skipped on purpose; it would go silent), anything before the first user interaction (autoplay policy), the page's own Web Audio, shadow-DOM media, and iframes (the script runs in the top frame only).
 - **Blowing is a loudness meter.** Talking loudly or music near the mic drains too. The mic permission is per site, like the camera.

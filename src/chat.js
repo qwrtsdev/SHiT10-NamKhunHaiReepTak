@@ -52,6 +52,26 @@ function chatSite({ rates, composer, send, model = [] }) {
     sent(promptLength(input));
   }, true);
 
+  // From INPUT_LOCK_AT the composer is greyed out and refuses clicks, focus and typing.
+  const lockStyle = document.createElement('style');
+  lockStyle.textContent = `${composer} { opacity: .4 !important; cursor: not-allowed !important; }`;
+  const inComposer = (e) => water.level >= INPUT_LOCK_AT && e.target.closest?.(composer);
+  for (const type of ['pointerdown', 'mousedown', 'click', 'beforeinput', 'paste', 'drop']) {
+    document.addEventListener(type, (e) => {
+      if (!inComposer(e)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }, true);
+  }
+  document.addEventListener('focusin', (e) => inComposer(e) && e.target.blur(), true);
+  effects.push(() => {
+    const locked = water.level >= INPUT_LOCK_AT;
+    if (locked === lockStyle.isConnected) return;
+    if (!locked) return lockStyle.remove();
+    document.head.append(lockStyle);
+    if (document.activeElement?.closest?.(composer)) document.activeElement.blur();
+  });
+
   document.addEventListener('click', (e) => {
     const btn = e.target.closest?.(send);
     if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') sent(promptLength(document.querySelector(composer)));

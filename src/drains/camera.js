@@ -32,7 +32,7 @@ async function camStart() {
       video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 12, max: 15 } },
     });
   } catch (e) {
-    cam.status = `Camera unavailable (${e.name}). Drag 🫗 to tilt instead.`;
+    cam.status = `Camera unavailable (${e.name}). Try 🎮, 🌬️ or 👄 instead.`;
     return;
   }
   cam.video = document.createElement('video');

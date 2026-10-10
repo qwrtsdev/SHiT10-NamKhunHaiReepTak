@@ -1,7 +1,6 @@
-// Bottom-left dock with all five ways to get the water out:
-//   🫗 drag ↔ to tilt (drains/tilt.js)           📷 TILT CAM: webcam tilt (drains/camera.js)
-//   🎮 JOY-CON: opens the scooper window           🌬️ BLOW: microphone (drains/blow.js)
-//   👄 DRINK: open your mouth to the webcam (drains/drink.js)
+// Bottom-left dock with the ways to get the water out:
+//   📷 TILT CAM: webcam tilt (drains/camera.js)    🎮 JOY-CON: opens the scooper window
+//   🌬️ BLOW: microphone (drains/blow.js)           👄 DRINK: open your mouth to the webcam (drains/drink.js)
 // Each active one gets a panel above the buttons (preview, meter, status, stop).
 // Lives in a closed shadow root so page CSS can't touch it; appended after the canvas so it stays
 // clickable during the 100% lockout.
@@ -19,10 +18,9 @@ function buildDock() {
       .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: calc(100vw - 24px); }
       .panels { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-bottom: 8px; max-width: calc(100vw - 24px); }
       .panels:not(:has(.panel:not([hidden]))) { display: none; }
-      button, .grip { border: 0; border-radius: 999px; padding: 6px 10px; cursor: pointer;
+      button { border: 0; border-radius: 999px; padding: 6px 10px; cursor: pointer;
         background: rgba(15,60,130,.85); color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3); user-select: none; }
-      .grip { cursor: ew-resize; touch-action: none; }
-      button:hover, .grip:hover { background: rgba(25,90,180,.95); }
+      button:hover { background: rgba(25,90,180,.95); }
       button.on { background: rgba(20,140,90,.92); }
       button.on:hover { background: rgba(30,165,110,.98); }
       .panel { width: 220px; padding: 8px; border-radius: 12px;
@@ -61,7 +59,6 @@ function buildDock() {
       </div>
     </div>
     <div class="row">
-      <div class="grip" title="Drag left/right to tilt the screen and pour the water out">🫗 <span class="deg">0°</span></div>
       <button data-act="camera" title="Use the webcam to detect when you tilt the laptop">📷 TILT CAM</button>
       <button data-act="joycon" title="Open the Joy-Con scooper window">🎮 JOY-CON</button>
       <button data-act="blow" title="Blow into the microphone: the louder, the faster it drains">🌬️ BLOW</button>
@@ -72,9 +69,7 @@ function buildDock() {
     cam: { panel: $('.cam'), vid: $('.vid'), status: $('.cam .status'), bucket: $('.bucket'), btn: $('[data-act=camera]') },
     blow: { panel: $('.blow'), bar: $('.blow .bar > div'), status: $('.blow .status'), btn: $('[data-act=blow]') },
     drink: { panel: $('.drink'), view: $('.view'), bar: $('.drink .bar > div'), status: $('.drink .status'), btn: $('[data-act=drink]') },
-    deg: $('.deg'),
   };
-  dragTilter($('.grip'));
   root.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'camera') cam.on ? camStop() : camStart();
@@ -101,7 +96,6 @@ effects.push((f) => {
   if (!show || f.t - dockText < 0.1) return; // text updates at 10 Hz
   dockText = f.t;
   const { cam: c, blow: b, drink: k } = dockUi;
-  dockUi.deg.textContent = `${Math.round((sim.tilt * 180) / Math.PI)}°`;
 
   // A panel stays up after a failed start so its error shows; Stop / starting again clears it.
   c.btn.classList.toggle('on', cam.on);
