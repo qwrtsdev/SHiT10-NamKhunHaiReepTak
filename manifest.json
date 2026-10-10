@@ -28,7 +28,6 @@
         "src/effects/waves.js",
         "src/effects/drops.js",
         "src/effects/scoop.js",
-        "src/effects/mouse.js",
         "src/effects/percent.js",
         "src/effects/lockout.js",
         "src/effects/alerts.js",

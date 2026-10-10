@@ -84,9 +84,8 @@ src/
     waves.js             draws the water + page blur
     drops.js             spray droplets, bubbles, the pour off a tilted edge
     scoop.js             draws the 🪣 for each Joy-Con scoop (the shared sim takes the water)
-    mouse.js             a stream of 🐭 runs across the screen when high water starts pouring
     percent.js           "💧 NN%" label
-    lockout.js           100% click block + LOCK_MESSAGE
+    lockout.js           100% click block + flashing red warning
     alerts.js            message boxes at 45% and 80%
     muffle.js            lowpass audio muffling
   chat.js                chatSite(): shared prompt detection + speed badge
@@ -118,11 +117,9 @@ src/
 - `GRAVITY`, `WAVE_DAMP`, `VISCOSITY`, `COL`: how the water moves (faster sloshing, calmer, smoother, resolution).
 - `TILT_LIP` (16°), `MAX_TILT` (45°), `SPILL_RATE`, `MAX_POUR`: pouring.
 - `CAM_MAX_ANGLE`, `CAM_MIN_CONFIDENCE`: webcam tilt.
-- `MOUSE_SHOW_AT`: minimum water level for the running mouse to appear while pouring (default `0.6`).
 - `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.45` / `0.7`: lowpass 20 kHz → 300 Hz, fully muffled from 70% up).
 - `MUFFLE_MIN_VOLUME`: volume when fully muffled (default `0.6`; `0` = silent).
 - `INPUT_LOCK_AT`: level where chat composers are locked (default `0.8`).
-- `LOCK_MESSAGE`: text shown at 100%.
 - Joy-Con: `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT` at the top of `src/joycon/joycon.js`.
 
 ## Known limits / TODO

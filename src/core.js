@@ -35,12 +35,12 @@ function frame(now) {
 }
 
 // Text outlined in white so it reads on light and dark pages. size is in CSS px.
-function outlinedText({ ctx, d }, text, x, y, size, align = 'start') {
+function outlinedText({ ctx, d }, text, x, y, size, align = 'start', fill = 'rgb(15,60,130)') {
   ctx.font = `bold ${size * d}px system-ui, sans-serif`;
   ctx.textAlign = align;
   ctx.lineWidth = (size / 5) * d;
   ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-  ctx.fillStyle = 'rgb(15,60,130)';
+  ctx.fillStyle = fill;
   ctx.strokeText(text, x, y);
   ctx.fillText(text, x, y);
 }

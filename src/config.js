@@ -28,8 +28,6 @@ const MUFFLE_FROM = 0.45, MUFFLE_TO = 0.7;
 const MUFFLE_MIN_VOLUME = 0.6; // volume when fully muffled: still audible, just underwater
 const INPUT_LOCK_AT = 0.8; // chat composers stop taking clicks and typing
 
-const LOCK_MESSAGE = 'กรุณาเทน้ำออกจากจอ';
-
 // Water physics (px and seconds). See sim.js. One sim runs for all tabs (offscreen/sim.js) in a
 // SIM_W × SIM_H tank; each tab stretches it to its own viewport.
 const SIM_W = 1600, SIM_H = 900;
@@ -42,7 +40,6 @@ const TILT_LIP = 16 * Math.PI / 180; // tilt past ~16° and water pours off the 
 const SPILL_RATE = 0.12; // how fast it pours (weir coefficient)
 const MAX_POUR = 0.12 / 0.9; // pour cap: 12% of the screen per 0.9 s
 const BUCKET_DIP = 0.3; // seconds from a Joy-Con scoop until the 🪣 reaches the water
-const MOUSE_SHOW_AT = 0.4; // show a running mouse when pouring starts above this water level
 
 // Webcam tilt (drains/camera.js): the angle of strong straight edges in the webcam image vs. a level reference.
 const CAM_MAX_ANGLE = 28; // degrees; the camera estimate is clamped to ±28°
