@@ -32,5 +32,5 @@ effects.push(() => {
   if (!lowpass) return;
   const k = muffleAmount();
   lowpass.frequency.setTargetAtTime(20000 * (300 / 20000) ** k, audioCtx.currentTime, 0.05);
-  volume.gain.setTargetAtTime(1 - k * k, audioCtx.currentTime, 0.05);
+  volume.gain.setTargetAtTime(1 - (1 - MUFFLE_MIN_VOLUME) * k * k, audioCtx.currentTime, 0.05);
 });

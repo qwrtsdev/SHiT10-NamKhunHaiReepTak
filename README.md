@@ -1,6 +1,6 @@
 # shitx-flood
 
-A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. From 45% the page audio gets muffled and quieter until it's silent at 100%. At 80% the chat box on supported chat sites stops taking clicks and typing. When water above 60% starts pouring, a mouse runs across the screen. At 100% you can't click anything until you get the water out. There are two ways to do that, both in the extension's toolbar popup: **📷 tilt the laptop** so it pours off the edge (the webcam notices), or **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water.
+A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. From 45% the page audio gets muffled and quieter until it sounds fully underwater. At 80% the chat box on supported chat sites stops taking clicks and typing. When water above 60% starts pouring, a mouse runs across the screen. At 100% you can't click anything until you get the water out. There are two ways to do that, both in the extension's toolbar popup: **📷 tilt the laptop** so it pours off the edge (the webcam notices), or **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water.
 
 ## Install (dev)
 
@@ -17,10 +17,10 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 | Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
 | Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). One simulation runs for every tab, in the extension's offscreen document (`src/offscreen/`), in a fixed 1600×900 tank. Each visible tab gets its height field ~60 times a second and stretches it to its own window, so all tabs show the same waves. Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
 | Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
-| Muffled audio | From **45% to 100%**, page `<audio>`/`<video>` goes through a Web Audio lowpass filter (cutoff 20 kHz → 300 Hz) and a volume fade (1 − k², silent at 100%). |
+| Muffled audio | From **45% to 70%** (then held), page `<audio>`/`<video>` goes through a Web Audio lowpass filter (cutoff 20 kHz → 300 Hz) and a volume fade down to `MUFFLE_MIN_VOLUME` (60%), so it sounds underwater but never goes silent. |
 | Chat box lock | From **80%**, the composer on supported chat sites is greyed out and refuses clicks, focus, typing, paste and drop. It unlocks when the water drops below 80%. |
 | 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging on the page does nothing. The toolbar popup still works, since it's browser UI. |
-| Drain controls | In the toolbar popup: **📷 Tilt cam** (start/stop on the current tab, with a live preview, status and **Calibrate level**) and **🎮 Scoop with a Joy-Con**. |
+| Drain controls (popup, in Thai) | In the toolbar popup, **one at a time**: pick **เทน้ำออก** (tilt cam) or **ตักน้ำออก** (Joy-Con) (click the chosen one again to turn it off). The choice is stored as `drainMode`. Picking the tilt cam starts it on the current tab (live preview, status, **Calibrate level**) and makes a connected Joy-Con ignore motion and stay silent. Picking the Joy-Con stops the tilt cam in every tab and shows pairing, live status and rumble settings. |
 
 ### Supported chat sites
 
@@ -49,7 +49,7 @@ Two ways, both in the toolbar popup: tilt with the webcam (1) or a Joy-Con (2).
 
 Water stays level with the ground, so tilting the screen makes the surface slope. Past **~16°** it pours off the low edge (capped at 12% of the screen per 0.9 s), and floating junk goes with it. Tilt comes from any of these (they add up, clamped to ±45°):
 
-- **📷 Tilt cam (webcam)**: toolbar popup → **📷 Tilt cam** (click again to stop). It runs in the current tab's page (the popup closes when it loses focus, and the camera permission is per site); the popup sends it start/stop/calibrate messages and shows its status while open. Grant camera access, keep the laptop level for a moment (that's the reference), then tilt it sideways. Each frame (~10/s) is shrunk to 160×120 grayscale. Strong Sobel edges vote into a 36-bin × 5° orientation histogram. Bins 90° apart are folded together, because rooms are full of horizontal *and* vertical lines. The strongest orientation is refined with a weighted circular mean and compared with the reference. The result is smoothed (70% old / 30% new) and clamped to ±28°. Frames below 12% confidence are skipped. **Calibrate level** resets the reference. While open, the popup shows the last analysed frame and the estimated angle.
+- **📷 Tilt cam (webcam)**: toolbar popup → **เทน้ำออก** (click again to turn it off). It runs in the current tab's page (the popup closes when it loses focus, and the camera permission is per site); the popup sends it start/stop/calibrate messages and shows its status while open. Grant camera access, keep the laptop level for a moment (that's the reference), then tilt it sideways. Each frame (~10/s) is shrunk to 160×120 grayscale. Strong Sobel edges vote into a 36-bin × 5° orientation histogram. Bins 90° apart are folded together, because rooms are full of horizontal *and* vertical lines. The strongest orientation is refined with a weighted circular mean and compared with the reference. The result is smoothed (70% old / 30% new) and clamped to ±28°. Frames below 12% confidence are skipped. **Calibrate level** resets the reference. While open, the popup shows the last analysed frame and the estimated angle.
   - It's a visual estimate, not a measurement. Point the webcam at something with straight lines (door frame, window, shelf), not a blank wall.
   - Frames are analysed locally in the page and never stored or sent. The camera permission is per site, because the content script runs in the page.
 - **Motion sensor**: on devices that have one (tablets, 2-in-1s, Chromebooks), `devicemotion` gravity is used directly.
@@ -58,14 +58,14 @@ Only the focused tab sends its tilt to the shared simulation, and it drops back 
 
 ### 2. Scoop with a Joy-Con
 
-Click the toolbar icon → **🎮 Scoop with a Joy-Con**. That opens the scooper window (`src/joycon/joycon.html`). Keep it open: it holds the WebHID connection.
+Click the toolbar icon → **ตักน้ำออก** → **🎮 เชื่อมต่อจอยคอน** (connect Joy-Con) and pick it in the browser's device list (once; it's remembered). No extra window: the controller runs in the extension's offscreen document (`src/offscreen/joycon.js` hosting `src/joycon/joycon.js`), so scooping keeps working with the popup closed. While open, the popup shows each connected controller with its battery, plus the rumble settings.
 
-1. Pair the Joy-Con in your OS Bluetooth settings, then press **Connect** (Chrome/Edge desktop only; L, R and Pro Controller work, and two at once is fine).
+1. Connect the Joy-Con in your OS Bluetooth settings, then press **🎮 เชื่อมต่อจอยคอน** (Chrome/Edge desktop only; L, R and Pro Controller work, and two at once is fine).
 2. **Dip**: point the top (shoulder-button end) down past 35°. The bucket fills, faster in deep water. You feel it glug: low rumble with random glugs and bubble ticks.
 3. **Scoop**: flip it up past 30°. A full bucket takes 6% of the screen from every tab, and you feel a splash followed by droplets. The shared simulation picks a random spot, every visible page shows a 🪣 dipping in there, and the water comes out around it, leaving a dent that refills as waves.
 4. Too slow (over 1.5 s between leaving the water and flipping up) and the water spills back, with a spill rumble.
 
-When idle, moving the controller makes a sloshing rumble that scales with the water level. With no water left, dipping just gives a dry scrape. Settings: rumble strength, **Flip tip direction** (if dip/flip feel reversed), **Test rumble**.
+When idle, moving the controller makes a sloshing rumble that scales with the water level. With no water left, dipping just gives a dry scrape. Settings: rumble strength, **Flip tip direction** (if dip/flip feel reversed).
 
 ## Files
 
@@ -90,10 +90,10 @@ src/
   chat.js                chatSite(): shared prompt detection + speed badge
   systems/
     claude.js, chatgpt.js, gemini.js, others.js   one chatSite() call per site
-  background.js          service worker: level badge, opens the Joy-Con window; creates the offscreen sim and relays chrome.storage to it
-  offscreen/             the one shared simulation (offscreen document): steps sim.js, streams it to tabs
-  popup/                 toolbar popup: level, 📷 tilt cam controls, open the Joy-Con scooper, cheat drain
-  joycon/                Joy-Con scooper window: WebHID, scoop gesture, HD-rumble haptics
+  background.js          service worker: level badge; creates the offscreen document and relays chrome.storage to and from it
+  offscreen/             offscreen document: the one shared simulation (steps sim.js, streams it to tabs) + the Joy-Con host (joycon.js)
+  popup/                 toolbar popup: level, 📷 tilt cam controls, 🎮 Joy-Con pairing + live status + rumble settings, cheat drain
+  joycon/                joycon.js: one controller over WebHID, scoop gesture, HD-rumble haptics (no DOM; runs in offscreen/)
 ```
 
 ### How the modules fit together
@@ -117,7 +117,8 @@ src/
 - `TILT_LIP` (16°), `MAX_TILT` (45°), `SPILL_RATE`, `MAX_POUR`: pouring.
 - `CAM_MAX_ANGLE`, `CAM_MIN_CONFIDENCE`: webcam tilt.
 - `MOUSE_SHOW_AT`: minimum water level for the running mouse to appear while pouring (default `0.6`).
-- `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.45` / `1`: lowpass 20 kHz → 300 Hz and volume fading to silent).
+- `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.45` / `0.7`: lowpass 20 kHz → 300 Hz, fully muffled from 70% up).
+- `MUFFLE_MIN_VOLUME`: volume when fully muffled (default `0.6`; `0` = silent).
 - `INPUT_LOCK_AT`: level where chat composers are locked (default `0.8`).
 - `LOCK_MESSAGE`: text shown at 100%.
 - Joy-Con: `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT` at the top of `src/joycon/joycon.js`.
@@ -128,7 +129,7 @@ src/
 - **Effort detection is a guess.** It only works if the effort appears in the model selector's label text.
 - **Attachment-only prompts** sent with Enter (no text) aren't counted.
 - **Webcam tilt is an estimate.** It drifts with blank walls, moving backgrounds or strongly diagonal scenes; recalibrate, or use another drain. Some sites block the camera with a Permissions-Policy, and then only the motion sensor tilts there.
-- **Joy-Con**: WebHID only (Chrome/Edge desktop). The scooper window must stay open. The dip/flip axis follows the Joy-Con tester's frame (x = toward the shoulder buttons). If it feels reversed on your controller, tick **Flip tip direction**. Uses default IMU scaling, not the factory calibration from SPI.
+- **Joy-Con**: WebHID only (Chrome/Edge/Brave desktop). Pairing has to happen in the popup (the device chooser needs a click); the connection then lives in the offscreen document. The dip/flip axis follows the Joy-Con tester's frame (x = toward the shoulder buttons). If it feels reversed on your controller, tick **Flip tip direction**. Uses default IMU scaling, not the factory calibration from SPI.
 - **Audio muffling misses some sound:** cross-origin media without CORS (skipped on purpose; it would go silent), anything before the first user interaction (autoplay policy), the page's own Web Audio, shadow-DOM media, and iframes (the script runs in the top frame only).
 - **Lockout only blocks the mouse.** Keyboard and mouse-wheel scrolling still work at 100%.
 - **Shared sim tank is 1600×900.** Tabs stretch it to their own size, so in a window with a very different shape the waves look squashed. The surface can stutter slightly, because tabs draw the latest update without interpolating.

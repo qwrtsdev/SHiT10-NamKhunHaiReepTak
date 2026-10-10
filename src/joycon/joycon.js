@@ -1,5 +1,5 @@
-// Joy-Con scooper: connects Joy-Cons over WebHID, turns a dip-and-flip motion into a scoop that
-// lowers the shared water level, and plays HD-rumble haptics so it feels like hauling water.
+// Joy-Con scooper: one controller over WebHID. Turns a dip-and-flip motion into a scoop that lowers
+// the shared water level, and plays HD-rumble haptics so it feels like hauling water.
 // Protocol notes (report layouts, subcommands, rumble encoding) follow the Joy-Con tester guide:
 // offsets are WebHID data indices (report ID excluded).
 
@@ -10,31 +10,8 @@ const LIFT_TIMEOUT = 1500; // ms; slower than this and the water spills back
 const ACC = 4 / 16384, GYR = 936 / 13371; // raw → G, raw → °/s (default calibration)
 const NAMES = { 0x2006: 'Joy-Con (L)', 0x2007: 'Joy-Con (R)', 0x2009: 'Pro Controller' };
 
-let level = 0, scooped = 0;
-const $ = (id) => document.getElementById(id);
-const ui = { gain: $('gain'), invert: $('invert') };
-
-// ---- shared water level -----------------------------------------------------------------
-function showLevel() {
-  $('level').textContent = `${Math.round(level * 100)}%`;
-  $('levelBar').style.width = `${level * 100}%`;
-  $('total').textContent = `Scooped so far: ${Math.round(scooped * 100)}%`;
-}
-chrome.storage.local.get({ target: 0 }, (s) => { level = s.target; showLevel(); });
-chrome.storage.onChanged.addListener((c) => {
-  if (c.target) { level = c.target.newValue ?? 0; showLevel(); }
-});
-
-// Take water out of every tab. Pages show a 🪣 for it (effects/scoop.js).
-function scoop(amount) {
-  amount = Math.min(amount, level);
-  if (amount <= 0) return 0;
-  level -= amount;
-  scooped += amount;
-  chrome.storage.local.set({ target: level, scoop: { amount, t: Date.now() } });
-  showLevel();
-  return amount;
-}
+// Runs in the offscreen document (src/offscreen/joycon.js hosts it), so the connection survives the
+// popup closing. The host provides joyconSettings { gain, invert }, waterLevel() and scoopWater(amount).
 
 // ---- HD rumble ----------------------------------------------------------------------------
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -52,6 +29,7 @@ function encodeDual(hf, ha, lf, la) {
   return [h & 0xff, encAmp(ha) * 2 + ((h >> 8) & 1), l & 0x7f, (encAmp(la) >> 1) + 64];
 }
 const NEUTRAL = [0x00, 0x01, 0x40, 0x40];
+const NEUTRAL_KEY = NEUTRAL.join();
 
 // ---- one controller -----------------------------------------------------------------------
 class JoyCon {
@@ -75,14 +53,16 @@ class JoyCon {
     this.scoops = 0;
     this.impacts = []; // one-shot haptic hits: { band, f, a, t0, dur }
     this.last = 0;
+    this.error = null;
     this.onReport = this.onReport.bind(this);
   }
 
-  // Output reports are 48 bytes: [counter, rumble ×8, subcommand, args…].
+  // 0x01 = [counter, rumble ×8, subcommand, args…], 0x10 = [counter, rumble ×8]. Sent unpadded, like the
+  // Joy-Con tester that works on this hardware. The first write error is kept for the popup to show.
   send(id, bytes) {
-    const buf = new Uint8Array(48);
-    buf.set(bytes.slice(0, 48));
-    return this.device.sendReport(id, buf);
+    return this.device.sendReport(id, Uint8Array.from(bytes)).catch((e) => {
+      this.error ??= `Write failed: ${e.message}`;
+    });
   }
 
   // Send a subcommand and wait for its 0x21 reply. Serialized: never two exchanges at once.
@@ -94,7 +74,7 @@ class JoyCon {
           this.waiters.push(w);
           setTimeout(() => { this.waiters = this.waiters.filter((x) => x !== w); resolve(null); }, 300);
         });
-        await this.send(0x01, [this.counter++ & 0x0f, ...NEUTRAL, ...NEUTRAL, id, ...args]).catch(() => {});
+        await this.send(0x01, [this.counter++ & 0x0f, ...NEUTRAL, ...NEUTRAL, id, ...args]);
         if (await reply) return true;
       }
       return false;
@@ -105,10 +85,13 @@ class JoyCon {
   async init(index) {
     if (!this.device.opened) await this.device.open();
     this.device.addEventListener('inputreport', this.onReport);
-    await this.subcmd(0x40, [0x01]); // IMU on
-    await this.subcmd(0x48, [0x01]); // vibration on
-    await this.subcmd(0x03, [0x30]); // full report mode with IMU, ~60 Hz
-    await this.subcmd(0x30, [1 << (index % 4)]); // player light
+    const replies = [
+      await this.subcmd(0x40, [0x01]), // IMU on
+      await this.subcmd(0x48, [0x01]), // vibration on
+      await this.subcmd(0x03, [0x30]), // full report mode with IMU, ~60 Hz
+      await this.subcmd(0x30, [1 << (index % 4)]), // player light
+    ];
+    if (!replies.some(Boolean)) this.error ??= 'Opened, but the Joy-Con never answered. Re-pair it (hold the sync button), then pair again.';
     this.hit('l', 160, 0.6, 120); // hello buzz
   }
 
@@ -138,12 +121,14 @@ class JoyCon {
     }
     // Pitch of the long (x) axis: + = top end pointing up (the accelerometer reads +1 G along "up").
     const n = Math.hypot(...this.grav) || 1;
-    this.pitch = (Math.asin(clamp(this.grav[0] / n, -1, 1)) * 180) / Math.PI * (ui.invert.checked ? -1 : 1);
+    this.pitch = (Math.asin(clamp(this.grav[0] / n, -1, 1)) * 180) / Math.PI * (joyconSettings.invert ? -1 : 1);
 
     const now = performance.now();
     const dt = this.last ? Math.min(0.1, (now - this.last) / 1000) : 0.015;
     this.last = now;
-    this.gesture(now, dt);
+    // Not the chosen drain (popup): stay connected, but ignore motion and keep quiet.
+    if (joyconSettings.enabled) this.gesture(now, dt);
+    else Object.assign(this, { state: 'ready', fill: 0, impacts: [] });
     this.rumble(now, dt);
   }
 
@@ -163,15 +148,17 @@ class JoyCon {
       case 'ready':
         if (p < DIP_DEG) { this.state = 'fill'; this.fill = 0; }
         break;
-      case 'fill': // bucket under water: fills faster when the water is deep
+      case 'fill': { // bucket under water: fills faster when the water is deep
+        const level = waterLevel();
         if (level > 0) this.fill = Math.min(1, this.fill + dt * 1.4 * clamp(level / 0.15, 0.25, 1));
         if (p > -10) {
           if (this.fill > 0.1) { this.state = 'lift'; this.since = now; } else this.state = 'ready';
         }
         break;
+      }
       case 'lift':
         if (p > LIFT_DEG) {
-          const got = scoop(this.fill * SCOOP_MAX);
+          const got = scoopWater(this.fill * SCOOP_MAX);
           if (got > 0) this.scoops++;
           this.splash(got > 0 ? this.fill : 0.15);
           this.state = 'cool';
@@ -209,7 +196,7 @@ class JoyCon {
   rumble(now, dt) {
     const r = Math.random;
     let hf = 220, ha = 0, lf = 120, la = 0;
-    const wet = level > 0;
+    const level = waterLevel(), wet = level > 0;
     if (this.state === 'ready' && wet) {
       // water sloshing in the jug as you move it
       la = clamp(this.motion / 700, 0, 1) * 0.35 * (0.3 + 0.7 * level);
@@ -240,88 +227,13 @@ class JoyCon {
       if (a > b[1]) b[0] = m.f; // strongest contributor sets the frequency
       b[1] = Math.min(1, b[1] + a);
     }
-    const gain = +ui.gain.value;
-    const bytes = encodeDual(bands.h[0], bands.h[1] * gain, bands.l[0], bands.l[1] * gain);
+    const gain = joyconSettings.gain;
+    const bytes = joyconSettings.enabled ? encodeDual(bands.h[0], bands.h[1] * gain, bands.l[0], bands.l[1] * gain) : NEUTRAL;
     if (this.sending) return; // don't pile up reports
+    const key = bytes.join();
+    if (key === NEUTRAL_KEY && this.lastRumble === NEUTRAL_KEY) return; // idle: keep Bluetooth quiet
     this.sending = true;
-    this.send(0x10, [this.counter++ & 0x0f, ...bytes, ...bytes]).catch(() => {}).finally(() => (this.sending = false));
+    this.lastRumble = key;
+    this.send(0x10, [this.counter++ & 0x0f, ...bytes, ...bytes]).finally(() => (this.sending = false));
   }
 }
-
-// The chooser only lists controllers that are connected right now. A paired Joy-Con drops off
-// Bluetooth when it sleeps, and the PC can't wake it.
-const NOT_LISTED = 'Joy-Con not in the list? Paired is not enough: it must be connected. ' +
-  'Press any button on it (its lights stop flashing when it reconnects), then press Connect again.';
-const OPEN_FAILED = ' On Linux, your user needs read/write access to /dev/hidraw* (install steam-devices, or see the README).';
-
-// ---- device list + UI -----------------------------------------------------------------------
-const pads = new Map(); // HIDDevice → { jc, el }
-
-async function addDevice(device) {
-  if (pads.has(device) || !NAMES[device.productId]) return;
-  const jc = new JoyCon(device);
-  const el = document.createElement('div');
-  el.className = 'card dev';
-  el.innerHTML = `<div class="ladle">🥄</div><div>
-    <div><b>${NAMES[device.productId]}</b> <span class="muted" data-k="battery"></span></div>
-    <div class="state" data-k="state">connecting…</div>
-    <div class="bar"><div data-k="fill"></div></div>
-    <div class="muted" data-k="info"></div></div>`;
-  $('devices').append(el);
-  pads.set(device, { jc, el });
-  try {
-    await jc.init(pads.size - 1);
-  } catch (e) {
-    el.querySelector('[data-k=state]').textContent = `Could not open: ${e.message}${navigator.userAgent.includes('Linux') ? OPEN_FAILED : ''}`;
-  }
-}
-
-function removeDevice(device) {
-  const p = pads.get(device);
-  if (!p) return;
-  p.jc.close();
-  p.el.remove();
-  pads.delete(device);
-}
-
-const STATE_TEXT = {
-  ready: 'Point the tip down to dip the bucket',
-  fill: 'Filling… flip it up!',
-  lift: 'Lifting… keep going!',
-  cool: 'Splash! 💦',
-};
-
-function draw() {
-  for (const { jc, el } of pads.values()) {
-    const k = (n) => el.querySelector(`[data-k=${n}]`);
-    el.querySelector('.ladle').style.transform = `rotate(${-jc.pitch}deg)`;
-    k('state').textContent = jc.last ? (level > 0 || jc.state === 'cool' ? STATE_TEXT[jc.state] : 'No water left 🎉') : 'connecting…';
-    k('fill').style.width = `${jc.fill * 100}%`;
-    k('battery').textContent = jc.battery && `🔋 ${jc.battery}`;
-    k('info').textContent = `tip ${Math.round(jc.pitch)}° · scoops ${jc.scoops}`;
-  }
-  requestAnimationFrame(draw);
-}
-requestAnimationFrame(draw);
-
-if (!navigator.hid) {
-  $('connect').disabled = true;
-  $('status').textContent = 'WebHID is not available in this browser. Use Chrome or Edge on desktop.';
-} else {
-  $('connect').onclick = async () => {
-    try {
-      const devices = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x057e }] });
-      for (const d of devices) await addDevice(d);
-      $('status').textContent = devices.length ? '' : NOT_LISTED;
-    } catch (e) {
-      $('status').textContent = e.name === 'NotFoundError' ? NOT_LISTED : e.message;
-    }
-  };
-  navigator.hid.addEventListener('connect', (e) => addDevice(e.device));
-  navigator.hid.addEventListener('disconnect', (e) => removeDevice(e.device));
-  navigator.hid.getDevices().then((ds) => ds.forEach(addDevice)); // reconnect devices allowed before
-}
-
-$('test').onclick = () => {
-  for (const { jc } of pads.values()) jc.splash(1);
-};

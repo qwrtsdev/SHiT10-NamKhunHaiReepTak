@@ -8,7 +8,7 @@
 
 function chatSite({ rates, composer, send, model = [] }) {
   const badge = document.createElement('span');
-  badge.title = 'Water per prompt = characters × this multiplier';
+  badge.title = 'น้ำต่อข้อความ = จำนวนตัวอักษร × ตัวคูณนี้';
   badge.style.cssText = 'align-self:center;margin:0 6px;font-size:12px;white-space:nowrap;opacity:.8;pointer-events:none';
 
   const selector = () => model.map((s) => document.querySelector(s)).find(Boolean);

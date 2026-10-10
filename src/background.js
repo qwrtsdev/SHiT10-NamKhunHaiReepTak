@@ -1,4 +1,4 @@
-// Service worker: the level badge on the toolbar icon, the Joy-Con window opener, and the bridge to the shared water simulation
+// Service worker: the level badge on the toolbar icon, and the bridge to the shared water simulation and Joy-Cons
 // (src/offscreen/). Offscreen documents only get chrome.runtime, so storage goes through here.
 
 function showLevel(target = 0) {
@@ -24,26 +24,18 @@ chrome.storage.local.get({ target: 0 }, (s) => showLevel(s.target));
 
 chrome.storage.onChanged.addListener((c) => {
   if (c.target) showLevel(c.target.newValue);
-  if (c.target || c.speed || c.scoop) {
-    const msg = { type: 'storage', target: c.target?.newValue, speed: c.speed?.newValue, scoop: c.scoop?.newValue };
+  if (c.target || c.speed || c.scoop || c.drainMode) {
+    const msg = { type: 'storage', target: c.target?.newValue, speed: c.speed?.newValue, scoop: c.scoop?.newValue,
+      drainMode: c.drainMode && (c.drainMode.newValue ?? null) };
     chrome.runtime.sendMessage(msg).catch(() => {}); // no offscreen doc yet: nothing to tell
   }
 });
 
-// One Joy-Con scooper window: focus it if it's already open. It has to stay open to keep the Joy-Con
-// connected. Opened from the popup.
-async function openJoycon() {
-  const url = chrome.runtime.getURL('src/joycon/joycon.html');
-  const [open] = await chrome.runtime.getContexts({ contextTypes: ['TAB'], documentUrls: [url] });
-  if (open) await chrome.windows.update(open.windowId, { focused: true });
-  else await chrome.windows.create({ url, type: 'popup', width: 480, height: 760 });
-}
-
 chrome.runtime.onMessage.addListener((m, _sender, reply) => {
   if (m.type === 'setTarget') chrome.storage.local.set({ target: m.target });
-  if (m.type === 'openJoycon') openJoycon().then(() => reply(), () => reply());
-  else if (m.type === 'ensureSim') ensureSim().then(() => reply());
-  else if (m.type === 'simInit') chrome.storage.local.get(['target', 'speed'], reply);
+  if (m.type === 'setStorage') chrome.storage.local.set(m.values); // a Joy-Con scoop (offscreen/joycon.js)
+  if (m.type === 'ensureSim') ensureSim().then(() => reply());
+  else if (m.type === 'simInit') chrome.storage.local.get(['target', 'speed', 'drainMode'], reply);
   else return;
   return true; // reply comes later
 });

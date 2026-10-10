@@ -1,7 +1,7 @@
 // Tuning knobs. Loaded first; every other content script reads these globals.
 
 // Water per prompt = characters × WATER_PER_CHAR × the model/effort multiplier (200 chars at ×1 = 12%).
-const WATER_PER_CHAR = 0.0006;
+const WATER_PER_CHAR = 0.005;
 const RISE_SPEED = 0.03; // viewport heights per second, at ×1
 const DRAIN_SPEED = 0.35; // how fast a tab follows a level drop made elsewhere (viewport heights/sec)
 
@@ -23,8 +23,9 @@ const RATES = {
   other: { models: {}, efforts: {} },
 };
 
-// Audio gets muffled (lowpass 20 kHz → 300 Hz) and quieter from 45%, silent at 100%.
-const MUFFLE_FROM = 0.45, MUFFLE_TO = 0.8;
+// Audio gets muffled (lowpass 20 kHz → 300 Hz) and a bit quieter from MUFFLE_FROM, fully muffled at MUFFLE_TO.
+const MUFFLE_FROM = 0.45, MUFFLE_TO = 0.7;
+const MUFFLE_MIN_VOLUME = 0.6; // volume when fully muffled: still audible, just underwater
 const INPUT_LOCK_AT = 0.8; // chat composers stop taking clicks and typing
 
 const LOCK_MESSAGE = 'กรุณาเทน้ำออกจากจอ';

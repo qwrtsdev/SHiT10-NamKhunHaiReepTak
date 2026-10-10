@@ -26,14 +26,14 @@ const camCtx = camCanvas.getContext('2d', { willReadFrequently: true });
 async function camStart() {
   if (cam.on || cam.starting) return;
   cam.starting = true;
-  cam.status = 'Asking for camera…';
+  cam.status = 'กำลังขอใช้กล้อง…';
   try {
     cam.stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 12, max: 15 } },
     });
   } catch (e) {
-    cam.status = `Camera unavailable (${e.name}). Try the Joy-Con instead.`;
+    cam.status = 'เปิดกล้องไม่ได้ ลองตักน้ำออกแทน';
     return;
   } finally {
     cam.starting = false;
@@ -43,7 +43,7 @@ async function camStart() {
   cam.video.playsInline = true;
   cam.video.srcObject = cam.stream;
   await cam.video.play().catch(() => {});
-  Object.assign(cam, { on: true, angle: 0, ref: null, raw: null, status: 'Keep the laptop level…' });
+  Object.assign(cam, { on: true, angle: 0, ref: null, raw: null, status: 'วางโน้ตบุ๊กให้ตรงก่อนสักครู่…' });
   cam.timer = setInterval(camAnalyze, 100);
 }
 
@@ -56,12 +56,12 @@ function camStop() {
 // Use the current view as "level". Only accepted when the frame is clear enough.
 function camCalibrate() {
   if (cam.raw == null || cam.conf < CAM_MIN_CONFIDENCE) {
-    cam.status = 'Need a clearer view to calibrate: point at a door, window or shelf.';
+    cam.status = 'ภาพไม่ชัด หันกล้องไปทางประตู หน้าต่าง หรือชั้นวางของ';
     return;
   }
   cam.ref = cam.raw;
   cam.angle = 0;
-  cam.status = 'Level set.';
+  cam.status = 'ตั้งระดับแล้ว';
 }
 
 // Wrap a difference between orientations (they repeat every 90°) into [−45, 45).
@@ -103,7 +103,7 @@ function camAnalyze() {
   const uniform = 3 / 18; // a 3-bin window's share when votes are spread evenly
   cam.conf = total > 0 ? (win(peak) / total - uniform) / (1 - uniform) : 0;
   if (angs.length < 150 || cam.conf < CAM_MIN_CONFIDENCE) {
-    cam.status = 'Finding edges… point the camera at straight lines.';
+    cam.status = 'กำลังหาเส้นตรง… หันกล้องไปที่ประตูหรือหน้าต่าง';
     return;
   }
 
@@ -124,7 +124,7 @@ function camAnalyze() {
   const rel = wrap90(cam.raw - cam.ref);
   const smooth = 0.7 * cam.angle + 0.3 * rel;
   cam.angle = Math.max(-CAM_MAX_ANGLE, Math.min(CAM_MAX_ANGLE, smooth));
-  cam.status = `${Math.round(cam.angle)}° · confidence ${Math.round(cam.conf * 100)}%`;
+  cam.status = `เอียง ${Math.round(cam.angle)}°`;
 }
 
 addEventListener('pagehide', camStop);
@@ -132,7 +132,8 @@ addEventListener('pagehide', camStop);
 // The popup's 📷 controls. It polls { act: 'status' } while open; frame is the last analysed frame.
 chrome.runtime.onMessage.addListener((m, _sender, reply) => {
   if (m.type !== 'cam') return;
-  if (m.act === 'toggle') cam.on ? camStop() : camStart();
+  if (m.act === 'start') camStart();
+  if (m.act === 'stop') camStop();
   if (m.act === 'calibrate') camCalibrate();
-  reply({ on: cam.on, status: cam.status, frame: cam.on ? camCanvas.toDataURL('image/jpeg', 0.6) : null });
+  reply({ on: cam.on, starting: !!cam.starting, status: cam.status, frame: cam.on ? camCanvas.toDataURL('image/jpeg', 0.6) : null });
 });
