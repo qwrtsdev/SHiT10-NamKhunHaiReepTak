@@ -147,6 +147,32 @@
       text-decoration: underline;
     }
 
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      margin: 8px 0;
+    }
+
+    .presets button {
+      padding: 6px 0;
+      background: transparent;
+      color: inherit;
+      border: 1px solid #1565c0;
+    }
+
+    #cheatView input[type=range] {
+      width: 100%;
+    }
+
+    #cheatView > button + button {
+      margin-top: 6px;
+    }
+
+    #drainAll {
+      background: #c62828;
+    }
+
     [hidden] {
       display: none !important;
     }
@@ -175,6 +201,7 @@
   </div>
   <div class="pct">0%</div>
 
+  <div id="mainView">
   <div class="modes">
     <button id="modeCam" data-mode="cam">เทน้ำออก</button>
     <button id="modeJoycon" data-mode="joycon">ตักน้ำออก</button>
@@ -199,7 +226,23 @@
     </div>
   </div>
 
-  <button id="cheat" class="cheat">เอาน้ำออกทั้งหมด</button>
+  <button id="cheat" class="cheat">ขอลองโกงหน่อย</button>
+  </div>
+
+  <div id="cheatView" hidden>
+    <label class="muted" for="cheatLevel">เลือกระดับน้ำ: <b id="cheatPick">0%</b></label>
+    <input type="range" id="cheatLevel" min="0" max="100" step="1" value="0">
+    <div class="presets">
+      <button data-pct="10">10%</button>
+      <button data-pct="45">45%</button>
+      <button data-pct="80">80%</button>
+      <button data-pct="90">90%</button>
+      <button data-pct="100">100%</button>
+    </div>
+    <button id="cheatSet">ตั้งระดับน้ำ</button>
+    <button id="drainAll">เอาน้ำออกทั้งหมด</button>
+    <button id="cheatBack" class="cheat">← กลับ</button>
+  </div>
   <script src="popup.js"></script>
 </body>
 

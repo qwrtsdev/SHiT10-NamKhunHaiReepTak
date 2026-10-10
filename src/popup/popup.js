@@ -1,6 +1,6 @@
 // Toolbar popup: current level, the drain picker (one at a time: tilt cam or Joy-Con), the tilt cam
 // (runs in a tab), Joy-Con pairing and status (the controllers run in the offscreen document,
-// offscreen/joycon.js), and a cheat drain for testing.
+// offscreen/joycon.js), and the "ขอลองโกงหน่อย" view: set the water to any % or drain it all.
 
 const $ = (id) => document.getElementById(id);
 const fill = document.querySelector('.fill'), pct = document.querySelector('.pct');
@@ -109,4 +109,30 @@ setInterval(() => {
   if (mode === 'joycon') joycon('status');
 }, 250);
 
-$('cheat').onclick = () => chrome.storage.local.set({ target: 0 });
+function showCheat(on) {
+  $('mainView').hidden = on;
+  $('cheatView').hidden = !on;
+}
+const pickCheat = (pct) => {
+  $('cheatLevel').value = pct;
+  $('cheatPick').textContent = `${pct}%`;
+};
+const setLevel = (pct) => chrome.storage.local.set({ target: pct / 100 });
+
+$('cheat').onclick = () => {
+  chrome.storage.local.get({ target: 0 }, (s) => pickCheat(Math.round(s.target * 100)));
+  showCheat(true);
+};
+$('cheatBack').onclick = () => showCheat(false);
+$('cheatLevel').oninput = () => pickCheat($('cheatLevel').value);
+$('cheatSet').onclick = () => setLevel(+$('cheatLevel').value);
+for (const b of document.querySelectorAll('[data-pct]')) {
+  b.onclick = () => {
+    pickCheat(b.dataset.pct);
+    setLevel(+b.dataset.pct);
+  };
+}
+$('drainAll').onclick = () => {
+  pickCheat(0);
+  setLevel(0);
+};

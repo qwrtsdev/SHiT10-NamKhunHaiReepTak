@@ -94,7 +94,7 @@ src/
     claude.js, chatgpt.js, gemini.js, others.js   one chatSite() call per site
   background.js          service worker: level badge; creates the offscreen document and relays chrome.storage to and from it
   offscreen/             offscreen document: the one shared simulation (steps sim.js, streams it to tabs) + the Joy-Con host (joycon.js)
-  popup/                 toolbar popup: level, 📷 tilt cam controls, 🎮 Joy-Con pairing + live status + rumble settings, cheat drain
+  popup/                 toolbar popup: level, 📷 tilt cam controls, 🎮 Joy-Con pairing + live status + rumble settings, "ขอลองโกงหน่อย" view (set the water to any % or drain it all)
   joycon/                joycon.js: one controller over WebHID, scoop gesture, HD-rumble haptics (no DOM; runs in offscreen/)
 ```
 
