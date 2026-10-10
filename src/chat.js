@@ -61,6 +61,7 @@ function chatSite({ rates, composer, send, model = [] }) {
       if (!inComposer(e)) return;
       e.preventDefault();
       e.stopImmediatePropagation();
+      if (type === 'pointerdown') showAlert({ icon: '⌨️', text: 'น้ำเข้าแป้นพิมพ์หมดแล้ว เข้าไม่ได้แล้ว!', danger: true });
     }, true);
   }
   document.addEventListener('focusin', (e) => inComposer(e) && e.target.blur(), true);

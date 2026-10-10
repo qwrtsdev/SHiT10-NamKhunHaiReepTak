@@ -1,8 +1,8 @@
 // Tuning knobs. Loaded first; every other content script reads these globals.
 
-// Water per prompt = characters × WATER_PER_CHAR × the model/effort multiplier (200 chars at ×1 = 12%).
-const WATER_PER_CHAR = 0.005;
-const RISE_SPEED = 0.03; // viewport heights per second, at ×1
+// Water per prompt = characters × WATER_PER_CHAR × the model/effort multiplier (100 chars at ×1 = 10%).
+const WATER_PER_CHAR = 0.001;
+const RISE_SPEED = 0.1; // viewport heights per second, at ×1
 const DRAIN_SPEED = 0.35; // how fast a tab follows a level drop made elsewhere (viewport heights/sec)
 
 // Better model / higher effort = faster rise. Each site's model selector label is lowercased and
@@ -35,8 +35,8 @@ const LOCK_MESSAGE = 'กรุณาเทน้ำออกจากจอ';
 const SIM_W = 1600, SIM_H = 900;
 const COL = 10; // column width of the height field
 const GRAVITY = 3000; // px/s²: higher = faster sloshing
-const WAVE_DAMP = 0.35; // fraction of wave motion lost per second
-const VISCOSITY = 0.08; // per-substep smoothing of the flow between neighbouring columns (0–0.25)
+const WAVE_DAMP = 0.55; // fraction of wave motion lost per second
+const VISCOSITY = 0.12; // per-substep smoothing of the flow between neighbouring columns (0–0.25)
 const MAX_TILT = 45 * Math.PI / 180; // tilt is clamped to ±45°
 const TILT_LIP = 16 * Math.PI / 180; // tilt past ~16° and water pours off the low edge of the screen
 const SPILL_RATE = 0.12; // how fast it pours (weir coefficient)

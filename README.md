@@ -12,13 +12,14 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 
 | Feature | What happens |
 |---|---|
-| Prompt detection | On a supported chat site, pressing Enter in the composer (when it has text) or clicking the send button adds water: **prompt length × 0.06% per character × N** (200 characters at ×1 = 12%). Enter + a send click within 600 ms count once. Empty prompts add nothing. |
-| Multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. It multiplies both how much water a prompt adds and the rise speed (`0.03` viewport heights/sec × N). |
+| Prompt detection | On a supported chat site, pressing Enter in the composer (when it has text) or clicking the send button adds water: **prompt length × 0.1% per character × N** (100 characters at ×1 = 10%). Enter + a send click within 600 ms count once. Empty prompts add nothing. |
+| Multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. It multiplies both how much water a prompt adds and the rise speed (`0.1` viewport heights/sec × N). |
 | Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
 | Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). One simulation runs for every tab, in the extension's offscreen document (`src/offscreen/`), in a fixed 1600×900 tank. Each visible tab gets its height field ~60 times a second and stretches it to its own window, so all tabs show the same waves. Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
 | Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
 | Muffled audio | From **45% to 70%** (then held), page `<audio>`/`<video>` goes through a Web Audio lowpass filter (cutoff 20 kHz → 300 Hz) and a volume fade down to `MUFFLE_MIN_VOLUME` (60%), so it sounds underwater but never goes silent. |
-| Chat box lock | From **80%**, the composer on supported chat sites is greyed out and refuses clicks, focus, typing, paste and drop. It unlocks when the water drops below 80%. |
+| Water alerts | A message box at the top of the page when the water rises past **45%** ("ระดับน้ำเริ่มเพิ่มขึ้นสูงเรื่อยๆ เริ่มไม่ได้ยินเสียงแล้ว") and **80%** ("คุณใช้เยอะเกินไป โลกร้อนจนน้ำท่วมจนแป้นพิมพ์จมไปในน้ำแล้ว!"). It starts with 🔇 (45%) or 🌊 (80%), slides in, and slides away by itself after ~6 s. Each shows once, in the tab you're looking at, and again only after the level drops back below it (`alertsShown` in storage, `src/effects/alerts.js`). |
+| Chat box lock | From **80%**, the composer on supported chat sites is greyed out and refuses clicks, focus, typing, paste and drop. Clicking it shows a red, shaking popup: "⌨️ น้ำเข้าแป้นพิมพ์หมดแล้ว เข้าไม่ได้แล้ว!" (~3 s). It unlocks when the water drops below 80%. |
 | 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging on the page does nothing. The toolbar popup still works, since it's browser UI. |
 | Drain controls (popup, in Thai) | In the toolbar popup, **one at a time**: pick **เทน้ำออก** (tilt cam) or **ตักน้ำออก** (Joy-Con) (click the chosen one again to turn it off). The choice is stored as `drainMode`. Picking the tilt cam starts it on the current tab (live preview, status, **Calibrate level**) and makes a connected Joy-Con ignore motion and stay silent. Picking the Joy-Con stops the tilt cam in every tab and shows pairing, live status and rumble settings. |
 
@@ -86,6 +87,7 @@ src/
     mouse.js             a stream of 🐭 runs across the screen when high water starts pouring
     percent.js           "💧 NN%" label
     lockout.js           100% click block + LOCK_MESSAGE
+    alerts.js            message boxes at 45% and 80%
     muffle.js            lowpass audio muffling
   chat.js                chatSite(): shared prompt detection + speed badge
   systems/
@@ -111,8 +113,8 @@ src/
 
 ### Tuning knobs (`src/config.js`)
 
-- `WATER_PER_CHAR`: water per prompt character at ×1 (default `0.0006`, so 200 characters = 12%).
-- `RISE_SPEED`: base rise speed at ×1 (default `0.03`/sec). `DRAIN_SPEED`: how fast other tabs follow a drop.
+- `WATER_PER_CHAR`: water per prompt character at ×1 (default `0.001`, so 100 characters = 10%).
+- `RISE_SPEED`: base rise speed at ×1 (default `0.1`/sec). `DRAIN_SPEED`: how fast other tabs follow a drop.
 - `GRAVITY`, `WAVE_DAMP`, `VISCOSITY`, `COL`: how the water moves (faster sloshing, calmer, smoother, resolution).
 - `TILT_LIP` (16°), `MAX_TILT` (45°), `SPILL_RATE`, `MAX_POUR`: pouring.
 - `CAM_MAX_ANGLE`, `CAM_MIN_CONFIDENCE`: webcam tilt.
