@@ -116,9 +116,3 @@ function flood(chars, multiplier = 1) {
   const amount = chars * WATER_PER_CHAR * multiplier;
   chrome.storage.local.set({ target: Math.min(1, water.target + amount), speed: RISE_SPEED * multiplier });
 }
-
-// Take water out around x (0–1 across the screen) in the shared sim: blowing (drains/blow.js) or
-// drinking (drains/drink.js). power (0–1) shapes the waves it makes. The sim lowers the stored level.
-function drainAt(kind, x, amount, power) {
-  if (amount > 0 && water.level > 0) simPort?.postMessage({ take: { kind, x, amount, power } });
-}

@@ -46,13 +46,3 @@ const MOUSE_SHOW_AT = 0.4; // show a running mouse when pouring starts above thi
 // Webcam tilt (drains/camera.js): the angle of strong straight edges in the webcam image vs. a level reference.
 const CAM_MAX_ANGLE = 28; // degrees; the camera estimate is clamped to ±28°
 const CAM_MIN_CONFIDENCE = 0.12;
-
-// Blowing into the microphone (drains/blow.js). Loudness above the room's noise floor → strength 0–1.
-const BLOW_RATE = 0.06; // fraction of the screen per second at full blast; it scales with strength²
-const BLOW_START_DB = 12; // dB above the noise floor before it counts as blowing
-const BLOW_RANGE_DB = 30; // dB from "just blowing" to full blast
-
-// Drinking: hold your mouth open to the webcam (drains/drink.js).
-const DRINK_RATE = 0.04; // fraction of the screen per second with the mouth wide open
-const DRINK_OPEN = 0.08; // how much darker the mouth area must get (fraction of its pixels) than when closed
-const DRINK_RANGE = 0.25; // extra dark fraction from "just open" to wide open

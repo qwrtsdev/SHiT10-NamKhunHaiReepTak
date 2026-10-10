@@ -1,4 +1,4 @@
-// Webcam as a tilt sensor. Opt-in from the 📷 CAMERA button in the dock (effects/dock.js).
+// Webcam as a tilt sensor. Started from the toolbar popup, which messages the active tab (see the end).
 // Each frame (~10/s) is shrunk to 160×120 grayscale; Sobel gradients of strong edges vote into a
 // 36-bin × 5° orientation histogram. Room edges are mostly horizontal + vertical, so bins 90° apart
 // are folded together, the strongest orientation is refined with a weighted circular mean, and the
@@ -24,7 +24,8 @@ camCanvas.height = CAM_H;
 const camCtx = camCanvas.getContext('2d', { willReadFrequently: true });
 
 async function camStart() {
-  if (cam.on) return;
+  if (cam.on || cam.starting) return;
+  cam.starting = true;
   cam.status = 'Asking for camera…';
   try {
     cam.stream = await navigator.mediaDevices.getUserMedia({
@@ -32,8 +33,10 @@ async function camStart() {
       video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 12, max: 15 } },
     });
   } catch (e) {
-    cam.status = `Camera unavailable (${e.name}). Try 🎮, 🌬️ or 👄 instead.`;
+    cam.status = `Camera unavailable (${e.name}). Try the Joy-Con instead.`;
     return;
+  } finally {
+    cam.starting = false;
   }
   cam.video = document.createElement('video');
   cam.video.muted = true;
@@ -125,3 +128,11 @@ function camAnalyze() {
 }
 
 addEventListener('pagehide', camStop);
+
+// The popup's 📷 controls. It polls { act: 'status' } while open; frame is the last analysed frame.
+chrome.runtime.onMessage.addListener((m, _sender, reply) => {
+  if (m.type !== 'cam') return;
+  if (m.act === 'toggle') cam.on ? camStop() : camStart();
+  if (m.act === 'calibrate') camCalibrate();
+  reply({ on: cam.on, status: cam.status, frame: cam.on ? camCanvas.toDataURL('image/jpeg', 0.6) : null });
+});

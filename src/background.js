@@ -31,7 +31,7 @@ chrome.storage.onChanged.addListener((c) => {
 });
 
 // One Joy-Con scooper window: focus it if it's already open. It has to stay open to keep the Joy-Con
-// connected. Opened from the popup or the 🎮 button in a page's dock (effects/dock.js).
+// connected. Opened from the popup.
 async function openJoycon() {
   const url = chrome.runtime.getURL('src/joycon/joycon.html');
   const [open] = await chrome.runtime.getContexts({ contextTypes: ['TAB'], documentUrls: [url] });

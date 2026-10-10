@@ -2,7 +2,6 @@
 // (created by background.js), so waves, tilt and pours are computed once instead of once per tab.
 // Tabs connect a port named 'sim' while visible. They send { tilt } (focused tab only) and get
 // { h, tilt, pour, level } every tick, plus { bucket: { x, amount } } when a Joy-Con scoop starts.
-// A tab that is blowing or drinking also sends { take: { kind, x, amount, power } } (see take()).
 // Offscreen documents only get chrome.runtime, so background.js relays chrome.storage both ways.
 
 const TICK = 16; // ms between steps / broadcasts
@@ -33,7 +32,6 @@ chrome.runtime.onConnect.addListener((p) => {
   ports.add(p);
   wasIdle = false; // send the newcomer the current state on the next tick
   p.onMessage.addListener((m) => {
-    if (m.take) take(m.take);
     if (m.tilt == null) return;
     tiltTarget = Math.max(-MAX_TILT, Math.min(MAX_TILT, m.tilt));
     tiltFrom = p;
@@ -71,21 +69,6 @@ function scoop(amount) {
     });
     splash(x, -60000); // water rushes back into the hole
   }, BUCKET_DIP * 1000);
-}
-
-// Blowing (kind 'blow') pushes the water away from x, so it leaves a dent that sloshes outward;
-// drinking ('drink') sucks it out right at the mouth. Either way the water leaves every tab.
-function take({ kind, x, amount, power = 0 }) {
-  const level = simVolume();
-  if (!ready || level <= 0 || !(amount > 0)) return;
-  const cx = SIM_W * Math.max(0, Math.min(1, x)), radius = kind === 'blow' ? 220 : 70;
-  const got = simRemove(Math.min(amount, level), (i) => {
-    const dist = Math.abs((i + 0.5) * sim.dx - cx);
-    return dist < radius ? 1 + Math.cos((Math.PI * dist) / radius) : 0;
-  });
-  drain(got);
-  if (kind === 'blow') splash(cx, 45000 * power, 8);
-  else splash(cx, -12000 * power, 3);
 }
 
 function step(dt) {
