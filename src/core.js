@@ -111,9 +111,10 @@ chrome.storage.onChanged.addListener((c) => {
   if (now > was + 1e-6) for (const fn of waterHooks.rise) fn(now - was);
 });
 
-// Raise the shared water level. Called by systems (e.g. systems/claude.js on prompt send).
-function flood(multiplier = 1) {
-  chrome.storage.local.set({ target: Math.min(1, water.target + STEP), speed: RISE_SPEED * multiplier });
+// Raise the shared water level for a sent prompt of `chars` characters.
+function flood(chars, multiplier = 1) {
+  const amount = chars * WATER_PER_CHAR * multiplier;
+  chrome.storage.local.set({ target: Math.min(1, water.target + amount), speed: RISE_SPEED * multiplier });
 }
 
 // Take water out around x (0–1 across the screen) in the shared sim: blowing (drains/blow.js) or

@@ -1,6 +1,6 @@
 // Shared prompt detection for AI chat sites. Each file in systems/ calls chatSite() for its own host.
-// Adds a "💧 ×N" speed badge after the model selector and calls flood(N) whenever a prompt is sent:
-// Enter in the composer (when it has text) or a click on the send button.
+// Adds a "💧 ×N" badge after the model selector and calls flood(prompt length, N) whenever a prompt is
+// sent: Enter in the composer (when it has text) or a click on the send button.
 //   rates:    a RATES entry from config.js
 //   composer: selector for the typing box
 //   send:     selector for the send button
@@ -8,7 +8,7 @@
 
 function chatSite({ rates, composer, send, model = [] }) {
   const badge = document.createElement('span');
-  badge.title = 'Water rise speed for this model';
+  badge.title = 'Water per prompt = characters × this multiplier';
   badge.style.cssText = 'align-self:center;margin:0 6px;font-size:12px;white-space:nowrap;opacity:.8;pointer-events:none';
 
   const selector = () => model.map((s) => document.querySelector(s)).find(Boolean);
@@ -27,12 +27,14 @@ function chatSite({ rates, composer, send, model = [] }) {
     if (badge.textContent !== text) badge.textContent = text; // only write when changed → no loop
   }
 
+  const promptLength = (el) => [...(el?.value ?? el?.textContent ?? '').trim()].length;
+
   // Enter can also trigger a click on the send button; count one prompt either way.
   let lastSent = 0;
-  function sent() {
-    if (performance.now() - lastSent < 600) return;
+  function sent(chars) {
+    if (!chars || performance.now() - lastSent < 600) return;
     lastSent = performance.now();
-    flood(multiplier());
+    flood(chars, multiplier());
   }
 
   let queued = false;
@@ -47,11 +49,11 @@ function chatSite({ rates, composer, send, model = [] }) {
   document.addEventListener('keydown', (e) => {
     const input = e.target.closest?.(composer);
     if (!input || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
-    if ((input.value ?? input.textContent).trim()) sent();
+    sent(promptLength(input));
   }, true);
 
   document.addEventListener('click', (e) => {
     const btn = e.target.closest?.(send);
-    if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') sent();
+    if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') sent(promptLength(document.querySelector(composer)));
   }, true);
 }

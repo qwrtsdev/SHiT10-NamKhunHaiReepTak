@@ -1,6 +1,7 @@
 // Tuning knobs. Loaded first; every other content script reads these globals.
 
-const STEP = 0.12; // fraction of viewport height added per prompt
+// Water per prompt = characters × WATER_PER_CHAR × the model/effort multiplier (200 chars at ×1 = 12%).
+const WATER_PER_CHAR = 0.005;
 const RISE_SPEED = 0.03; // viewport heights per second, at ×1
 const DRAIN_SPEED = 0.35; // how fast a tab follows a level drop made elsewhere (viewport heights/sec)
 

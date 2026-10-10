@@ -12,8 +12,8 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 
 | Feature | What happens |
 |---|---|
-| Prompt detection | On a supported chat site, pressing Enter in the composer (when it has text) or clicking the send button adds **12%** to the water level. Enter + a send click within 600 ms count once. |
-| Speed multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. Rise speed = `0.03` viewport heights/sec × N. |
+| Prompt detection | On a supported chat site, pressing Enter in the composer (when it has text) or clicking the send button adds water: **prompt length × 0.06% per character × N** (200 characters at ×1 = 12%). Enter + a send click within 600 ms count once. Empty prompts add nothing. |
+| Multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. It multiplies both how much water a prompt adds and the rise speed (`0.03` viewport heights/sec × N). |
 | Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
 | Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). One simulation runs for every tab, in the extension's offscreen document (`src/offscreen/`), in a fixed 1600×900 tank. Each visible tab gets its height field ~60 times a second and stretches it to its own window, so all tabs show the same waves. Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
 | Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
@@ -126,7 +126,7 @@ src/
 - All content scripts are plain (non-module) scripts listed in `manifest.json` → `content_scripts.js`. They run **in that order** and **share one global scope**. Keep top-level names unique across files; a duplicate `const` breaks the second file.
 - Load order: `config.js` → `core.js` → `sim.js` → drains → effects → `chat.js` → systems.
 - **An effect** registers a per-frame function: `effects.push((f) => { ... })`, where `f = { ctx, t, dt, d, w, h }` (`d` = devicePixelRatio, `w`/`h` canvas size in device px). Effects run in manifest order; later effects draw on top. Read the water through `water.level` (0–1), `surfaceAt(x)`, `depthAt(x)`, `slopeAt(x)` (CSS px), `sim.tilt`, `sim.pour`. These mirror the shared simulation and are read-only in a tab: `simRemove()` / `splash()` there would be overwritten by the next update.
-- **A system** decides when the water rises. It calls `flood(multiplier)`, and core writes the new level to `chrome.storage`, which updates every tab. For a chat site, add `src/systems/<site>.js` with one `chatSite({ rates, composer, send, model })` call.
+- **A system** decides when the water rises. It calls `flood(chars, multiplier)`, and core writes the new level to `chrome.storage`, which updates every tab. For a chat site, add `src/systems/<site>.js` with one `chatSite({ rates, composer, send, model })` call.
 - **A drain** lowers it: set `target` (and `scoop`) in `chrome.storage.local`, or from a page call `drainAt(kind, x, amount, power)` (core.js) to take water out around `x` in the shared sim, which writes the new level. Pouring is done inside `src/offscreen/sim.js`.
 - **Shared simulation** (`src/offscreen/sim.js`): tabs connect a `chrome.runtime` port named `sim` while visible. A tab sends `{ tilt }` (radians) and `{ take: { kind, x, amount, power } }` while blowing or drinking; the sim sends `{ h, tilt, pour, level }` every 16 ms and `{ bucket: { x, amount } }` when a scoop starts. Offscreen documents can only use `chrome.runtime`, so `background.js` forwards storage changes to the sim (`{ type: 'storage' }`) and writes its pours back (`{ type: 'setTarget' }`).
 - Hooks: `waterHooks.rise.push(fn(amount))` when the level goes up, `waterHooks.scoop.push(fn({ x, amount }))` when a Joy-Con scoop starts (`x` = 0–1 across the screen).
@@ -136,7 +136,7 @@ src/
 
 ### Tuning knobs (`src/config.js`)
 
-- `STEP`: how much each prompt adds (default `0.12`).
+- `WATER_PER_CHAR`: water per prompt character at ×1 (default `0.0006`, so 200 characters = 12%).
 - `RISE_SPEED`: base rise speed at ×1 (default `0.03`/sec). `DRAIN_SPEED`: how fast other tabs follow a drop.
 - `GRAVITY`, `WAVE_DAMP`, `VISCOSITY`, `COL`: how the water moves (faster sloshing, calmer, smoother, resolution).
 - `TILT_LIP` (16°), `MAX_TILT` (45°), `SPILL_RATE`, `MAX_POUR`: pouring.
