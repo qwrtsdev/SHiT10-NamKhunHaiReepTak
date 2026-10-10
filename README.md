@@ -15,7 +15,7 @@ A joke Chrome extension (Manifest V3). Every prompt you send on claude.ai makes 
 | Prompt detection | On claude.ai, pressing Enter in the composer (`[data-testid="chat-input"]`) when it has text, or clicking `[data-testid="chat-input-send"]`, adds **12%** to the water level. |
 | Speed multiplier | A `💧 ×N` badge is placed right after the model selector (`[data-testid="model-selector-dropdown"]`). N = model × effort, read from the selector's label text. Rise speed = `0.03` viewport heights/sec × N. |
 | Shared level | The level is stored in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level without rising again. |
-| Water overlay | A full-screen `<canvas>` (max z-index, `pointer-events:none`) draws two semi-transparent sine-wave layers plus a `💧 NN%` label under the surface. |
+| Water overlay | A full-screen overlay draws two semi-transparent sine-wave layers, progressively blurs the page behind the water (stronger with water level and depth), and shows a `💧 NN%` label under the surface. |
 | Muffled audio | From **60% to 70%**, page `<audio>`/`<video>` is routed through a Web Audio lowpass filter whose cutoff falls from 20 kHz to 300 Hz. It stays at 300 Hz above 70%. |
 | 100% lockout | The canvas switches to `pointer-events:auto`, which blocks all clicks, and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). |
 | Drain | Clicking the extension's toolbar icon sets the level to 0 on every tab. |
