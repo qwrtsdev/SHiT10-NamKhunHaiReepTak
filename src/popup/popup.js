@@ -8,12 +8,9 @@ function show(target = 0) {
 chrome.storage.local.get({ target: 0 }, (s) => show(s.target));
 chrome.storage.onChanged.addListener((c) => c.target && show(c.target.newValue));
 
-// One scooper window: focus it if it's already open. It has to stay open to keep the Joy-Con connected.
+// background.js opens (or focuses) the one scooper window.
 document.getElementById('joycon').onclick = async () => {
-  const url = chrome.runtime.getURL('src/joycon/joycon.html');
-  const [open] = await chrome.runtime.getContexts({ contextTypes: ['TAB'], documentUrls: [url] });
-  if (open) await chrome.windows.update(open.windowId, { focused: true });
-  else await chrome.windows.create({ url, type: 'popup', width: 480, height: 760 });
+  await chrome.runtime.sendMessage({ type: 'openJoycon' });
   window.close();
 };
 

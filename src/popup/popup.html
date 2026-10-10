@@ -11,7 +11,8 @@
     .pct { margin: 4px 0 12px; font-weight: 600; }
     button { width: 100%; padding: 9px; border: 0; border-radius: 8px; background: #1565c0; color: #fff; font: 600 13px system-ui; cursor: pointer; }
     button:hover { background: #0d4fa0; }
-    ul { padding-left: 18px; margin: 12px 0; }
+    p { margin: 12px 0 0; }
+    ul { padding-left: 18px; margin: 6px 0 12px; }
     li { margin: 4px 0; }
     .cheat { all: unset; color: #7a8aa3; font-size: 11px; cursor: pointer; text-decoration: underline; }
     @media (prefers-color-scheme: dark) {
@@ -25,10 +26,13 @@
   <div class="bar"><div class="fill"></div></div>
   <div class="pct">0%</div>
   <button id="joycon">🎮 Scoop with a Joy-Con</button>
+  <p>Five ways to drain it, all in the bottom-left of every flooded page:</p>
   <ul>
-    <li><b>Tilt the screen</b> past ~16° and the water pours off the low edge:
-      📷 CAMERA (bottom-left of the page, webcam tilt), a tilt sensor if your device has one, or drag 🫗 left/right.</li>
-    <li><b>Joy-Con</b>: point it down to dip the bucket, flip it up to scoop.</li>
+    <li><b>🫗 Drag</b> left/right to tilt the screen past ~16°: the water pours off the low edge.</li>
+    <li><b>📷 Tilt cam</b>: tilt the laptop, the webcam notices (a tilt sensor works too).</li>
+    <li><b>🎮 Joy-Con</b>: point it down to dip the bucket, flip it up to scoop.</li>
+    <li><b>🌬️ Blow</b> into the mic. The louder, the more it drains.</li>
+    <li><b>👄 Drink</b> it: hold your mouth open to the webcam.</li>
   </ul>
   <button id="cheat" class="cheat">cheat: drain everything</button>
   <script src="popup.js"></script>

@@ -1,4 +1,4 @@
-// Service worker: the level badge on the toolbar icon, and the bridge to the shared water simulation
+// Service worker: the level badge on the toolbar icon, the Joy-Con window opener, and the bridge to the shared water simulation
 // (src/offscreen/). Offscreen documents only get chrome.runtime, so storage goes through here.
 
 function showLevel(target = 0) {
@@ -30,9 +30,19 @@ chrome.storage.onChanged.addListener((c) => {
   }
 });
 
+// One Joy-Con scooper window: focus it if it's already open. It has to stay open to keep the Joy-Con
+// connected. Opened from the popup or the 🎮 button in a page's dock (effects/dock.js).
+async function openJoycon() {
+  const url = chrome.runtime.getURL('src/joycon/joycon.html');
+  const [open] = await chrome.runtime.getContexts({ contextTypes: ['TAB'], documentUrls: [url] });
+  if (open) await chrome.windows.update(open.windowId, { focused: true });
+  else await chrome.windows.create({ url, type: 'popup', width: 480, height: 760 });
+}
+
 chrome.runtime.onMessage.addListener((m, _sender, reply) => {
   if (m.type === 'setTarget') chrome.storage.local.set({ target: m.target });
-  if (m.type === 'ensureSim') ensureSim().then(() => reply());
+  if (m.type === 'openJoycon') openJoycon().then(() => reply(), () => reply());
+  else if (m.type === 'ensureSim') ensureSim().then(() => reply());
   else if (m.type === 'simInit') chrome.storage.local.get(['target', 'speed'], reply);
   else return;
   return true; // reply comes later
