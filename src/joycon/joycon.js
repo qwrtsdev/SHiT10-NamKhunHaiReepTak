@@ -248,6 +248,12 @@ class JoyCon {
   }
 }
 
+// The chooser only lists controllers that are connected right now. A paired Joy-Con drops off
+// Bluetooth when it sleeps, and the PC can't wake it.
+const NOT_LISTED = 'Joy-Con not in the list? Paired is not enough: it must be connected. ' +
+  'Press any button on it (its lights stop flashing when it reconnects), then press Connect again.';
+const OPEN_FAILED = ' On Linux, your user needs read/write access to /dev/hidraw* (install steam-devices, or see the README).';
+
 // ---- device list + UI -----------------------------------------------------------------------
 const pads = new Map(); // HIDDevice → { jc, el }
 
@@ -266,7 +272,7 @@ async function addDevice(device) {
   try {
     await jc.init(pads.size - 1);
   } catch (e) {
-    el.querySelector('[data-k=state]').textContent = `Could not open: ${e.message}`;
+    el.querySelector('[data-k=state]').textContent = `Could not open: ${e.message}${navigator.userAgent.includes('Linux') ? OPEN_FAILED : ''}`;
   }
 }
 
@@ -306,9 +312,9 @@ if (!navigator.hid) {
     try {
       const devices = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x057e }] });
       for (const d of devices) await addDevice(d);
-      $('status').textContent = devices.length ? '' : 'No device picked.';
+      $('status').textContent = devices.length ? '' : NOT_LISTED;
     } catch (e) {
-      $('status').textContent = e.message;
+      $('status').textContent = e.name === 'NotFoundError' ? NOT_LISTED : e.message;
     }
   };
   navigator.hid.addEventListener('connect', (e) => addDevice(e.device));
