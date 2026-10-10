@@ -107,13 +107,20 @@
       padding: 8px;
       border-radius: 8px;
       background: rgba(21, 101, 192, .08);
-      display: grid;
-      gap: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
     }
 
     .pad .state {
       font-weight: 600;
+      text-align: right;
     }
+
+    .state.ok { color: #1b8a4b; }
+    .state.fail { color: #c62828; }
+    .state.wait { color: #b26a00; }
 
     label {
       display: flex;
@@ -153,6 +160,10 @@
       .bar {
         background: #213551;
       }
+
+      .state.ok { color: #5fd38d; }
+      .state.fail { color: #ff6b6b; }
+      .state.wait { color: #ffb74d; }
     }
   </style>
 </head>

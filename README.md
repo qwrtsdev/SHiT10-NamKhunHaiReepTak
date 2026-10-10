@@ -58,7 +58,7 @@ Only the focused tab sends its tilt to the shared simulation, and it drops back 
 
 ### 2. Scoop with a Joy-Con
 
-Click the toolbar icon → **ตักน้ำออก** → **🎮 เชื่อมต่อจอยคอน** (connect Joy-Con) and pick it in the browser's device list (once; it's remembered). No extra window: the controller runs in the extension's offscreen document (`src/offscreen/joycon.js` hosting `src/joycon/joycon.js`), so scooping keeps working with the popup closed. While open, the popup shows each connected controller with its battery, plus the rumble settings.
+Click the toolbar icon → **ตักน้ำออก** → **🎮 เชื่อมต่อจอยคอน** (connect Joy-Con) and pick it in the browser's device list (once; it's remembered). No extra window: the controller runs in the extension's offscreen document (`src/offscreen/joycon.js` hosting `src/joycon/joycon.js`), so scooping keeps working with the popup closed. While open, the popup shows each controller and whether it's connected, plus the rumble settings.
 
 1. Connect the Joy-Con in your OS Bluetooth settings, then press **🎮 เชื่อมต่อจอยคอน** (Chrome/Edge desktop only; L, R and Pro Controller work, and two at once is fine).
 2. **Dip**: point the top (shoulder-button end) down past 35°. The bucket fills, faster in deep water. You feel it glug: low rumble with random glugs and bubble ticks.

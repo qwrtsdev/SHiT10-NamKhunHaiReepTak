@@ -55,7 +55,6 @@ chrome.runtime.onMessage.addListener((m, _sender, reply) => {
       name: NAMES[jc.device.productId],
       streaming: !!jc.last,
       error: jc.error,
-      battery: jc.battery,
     })),
   });
   if (m.act === 'refresh') refreshDevices().then(status, status);

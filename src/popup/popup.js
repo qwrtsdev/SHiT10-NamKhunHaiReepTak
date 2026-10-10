@@ -59,7 +59,6 @@ chrome.storage.local.get({ drainMode: null }, (s) => {
 });
 
 const JOYCON_FILTERS = [0x2006, 0x2007, 0x2009].map((productId) => ({ vendorId: 0x057e, productId }));
-const BATTERY = { full: 'เต็ม', medium: 'ปานกลาง', low: 'ต่ำ', critical: 'ใกล้หมด', empty: 'หมด' };
 // The chooser only lists controllers that are connected right now; a paired Joy-Con drops off
 // Bluetooth when it sleeps and the PC can't wake it.
 const NOT_LISTED = 'ไม่เจอจอยคอน? ต้องเชื่อมบลูทูธไว้ก่อน กดปุ่มอะไรก็ได้บนจอยจนไฟหยุดกะพริบ แล้วลองใหม่';
@@ -68,9 +67,8 @@ function padCard(p) {
   const line = (cls, text) => Object.assign(document.createElement('div'), { className: cls, textContent: text });
   const card = line('pad', '');
   card.title = p.error ?? ''; // the technical reason, on hover
-  card.append(line('', `${p.name}${p.battery ? ` · 🔋 ${BATTERY[p.battery] ?? p.battery}` : ''}`));
-  // Only shown until it works: connecting, or why it failed.
-  if (!p.streaming) card.append(line('state', p.error ? 'เชื่อมต่อไม่สำเร็จ ลองเชื่อมต่อใหม่' : 'กำลังเชื่อมต่อ…'));
+  const [cls, text] = p.streaming ? ['ok', 'เชื่อมต่อแล้ว'] : p.error ? ['fail', 'เชื่อมต่อไม่สำเร็จ ลองใหม่'] : ['wait', 'กำลังเชื่อมต่อ…'];
+  card.append(line('', p.name), line(`state ${cls}`, text));
   return card;
 }
 
