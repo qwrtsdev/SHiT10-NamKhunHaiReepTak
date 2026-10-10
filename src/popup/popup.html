@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>shitx flood</title>
+  <style>
+    body { width: 280px; margin: 0; padding: 14px; font: 13px/1.4 system-ui, sans-serif; color: #0d2a52; background: #f3f8ff; }
+    h1 { font-size: 15px; margin: 0 0 10px; }
+    .bar { height: 14px; border-radius: 7px; background: #dbe7f6; overflow: hidden; }
+    .fill { height: 100%; width: 0; background: linear-gradient(90deg, #4aa3ff, #1565c0); transition: width .3s; }
+    .pct { margin: 4px 0 12px; font-weight: 600; }
+    button { width: 100%; padding: 9px; border: 0; border-radius: 8px; background: #1565c0; color: #fff; font: 600 13px system-ui; cursor: pointer; }
+    button:hover { background: #0d4fa0; }
+    ul { padding-left: 18px; margin: 12px 0; }
+    li { margin: 4px 0; }
+    .cheat { all: unset; color: #7a8aa3; font-size: 11px; cursor: pointer; text-decoration: underline; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0f1b2d; color: #dce9ff; }
+      .bar { background: #213551; }
+    }
+  </style>
+</head>
+<body>
+  <h1>💧 shitx flood</h1>
+  <div class="bar"><div class="fill"></div></div>
+  <div class="pct">0%</div>
+  <button id="joycon">🎮 Scoop with a Joy-Con</button>
+  <ul>
+    <li><b>Tilt the screen</b> past ~16° and the water pours off the low edge:
+      📷 CAMERA (bottom-left of the page, webcam tilt), a tilt sensor if your device has one, or drag 🫗 left/right.</li>
+    <li><b>Joy-Con</b>: point it down to dip the bucket, flip it up to scoop.</li>
+  </ul>
+  <button id="cheat" class="cheat">cheat: drain everything</button>
+  <script src="popup.js"></script>
+</body>
+</html>

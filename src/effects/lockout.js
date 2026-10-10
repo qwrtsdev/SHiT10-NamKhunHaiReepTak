@@ -1,8 +1,11 @@
-// Fully flooded: the canvas swallows clicks until the water is drained (extension icon).
+// Fully flooded: the canvas swallows clicks until the water is poured out (tilt) or scooped (Joy-Con).
+// While locked, dragging anywhere on the screen tilts it (drains/tilt.js).
 
 effects.push((f) => {
-  const full = water.level >= 1;
+  const full = water.level >= 0.995 || (tiltIn.dragging && water.level >= 0.9);
   const pe = full ? 'auto' : 'none';
   if (canvas.style.pointerEvents !== pe) canvas.style.pointerEvents = pe;
-  if (full) outlinedText(f, LOCK_MESSAGE, f.w / 2, f.h / 2, 36, 'center');
+  if (water.level < 0.995) return;
+  outlinedText(f, LOCK_MESSAGE, f.w / 2, f.h / 2, 36, 'center');
+  outlinedText(f, 'tilt the screen (drag ↔ / 📷) or scoop it out with a Joy-Con 🎮', f.w / 2, f.h / 2 + 40 * f.d, 16, 'center');
 });

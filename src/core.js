@@ -1,10 +1,15 @@
 // Shared water state, the overlay canvas and the frame loop.
 // The level lives in chrome.storage so every tab floods together.
 // Effects register with effects.push(fn); each fn(f) runs every frame in manifest order,
-// with f = { ctx, t, d, w, h, top } (t seconds, d devicePixelRatio, top = water surface y).
+// with f = { ctx, t, dt, d, w, h } (t/dt seconds, d devicePixelRatio, w/h canvas size in device px).
+// water.level is the volume actually on screen (sim.js moves it toward water.target).
 
-const water = { level: 0, target: 0, speed: RISE_SPEED };
+// water.held = water a 🪣 is about to take out (scoop.js): the sim leaves it alone until then.
+const water = { level: 0, target: 0, speed: RISE_SPEED, held: 0 };
 const effects = [];
+// Shared events: waterHooks.rise.push(fn(amount)) when the level goes up,
+// waterHooks.scoop.push(fn({ amount, t })) when a Joy-Con scoop took water out.
+const waterHooks = { rise: [], scoop: [] };
 
 const canvas = document.createElement('canvas');
 canvas.style.cssText =
@@ -18,12 +23,12 @@ function resize() {
 }
 
 function frame(now) {
-  const dt = lastFrame ? (now - lastFrame) / 1000 : 0;
+  // Clamp dt: a backgrounded tab resumes without a huge physics jump.
+  const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 0;
   lastFrame = now;
-  water.level = Math.min(water.target, water.level + water.speed * dt);
   const { width: w, height: h } = canvas;
   ctx.clearRect(0, 0, w, h);
-  const f = { ctx, t: now / 1000, d: devicePixelRatio, w, h, top: h * (1 - water.level) };
+  const f = { ctx, t: now / 1000, dt, d: devicePixelRatio, w, h };
   for (const fx of effects) fx(f);
   requestAnimationFrame(frame);
 }
@@ -55,10 +60,31 @@ chrome.storage.local.get({ target: 0, speed: RISE_SPEED }, (s) => {
   applyWater(s);
 });
 chrome.storage.onChanged.addListener((c) => {
-  if (c.target) applyWater({ target: c.target.newValue ?? 0, speed: c.speed?.newValue ?? water.speed });
+  if (c.scoop?.newValue) for (const fn of waterHooks.scoop) fn(c.scoop.newValue);
+  if (!c.target) return;
+  const was = water.target, now = c.target.newValue ?? 0;
+  applyWater({ target: now, speed: c.speed?.newValue ?? water.speed });
+  if (now > was + 1e-6) for (const fn of waterHooks.rise) fn(now - was);
 });
 
 // Raise the shared water level. Called by systems (e.g. systems/claude.js on prompt send).
 function flood(multiplier = 1) {
   chrome.storage.local.set({ target: Math.min(1, water.target + STEP), speed: RISE_SPEED * multiplier });
+}
+
+// Only the focused tab drains for real (pouring); other tabs follow through storage.
+// Otherwise every visible tab would subtract the same pour.
+function canDrainHere() {
+  return document.hasFocus();
+}
+
+// Lower the shared level by `amount` (water that left the screen). Writes are batched.
+let drainTimer = 0;
+function drain(amount) {
+  water.target = Math.max(0, water.target - amount);
+  if (drainTimer) return;
+  drainTimer = setTimeout(() => {
+    drainTimer = 0;
+    chrome.storage.local.set({ target: water.target });
+  }, 150);
 }

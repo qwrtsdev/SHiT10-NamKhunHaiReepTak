@@ -1,6 +1,6 @@
 # shitx-flood
 
-A joke Chrome extension (Manifest V3). Every prompt you send on claude.ai makes 2D water rise on **every website you have open**. Better models flood faster. Past 60% the page audio gets muffled. At 100% you can't click anything until you drain the water.
+A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. Junk falls in and floats or sinks. Past 60% the page audio gets muffled. At 100% you can't click anything until you get the water out, and there are two ways to do that: **tilt the screen** so it pours off the edge, or **scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water.
 
 ## Install (dev)
 
@@ -12,68 +12,119 @@ A joke Chrome extension (Manifest V3). Every prompt you send on claude.ai makes 
 
 | Feature | What happens |
 |---|---|
-| Prompt detection | On claude.ai, pressing Enter in the composer (`[data-testid="chat-input"]`) when it has text, or clicking `[data-testid="chat-input-send"]`, adds **12%** to the water level. |
-| Speed multiplier | A `💧 ×N` badge is placed right after the model selector (`[data-testid="model-selector-dropdown"]`). N = model × effort, read from the selector's label text. Rise speed = `0.03` viewport heights/sec × N. |
-| Shared level | The level is stored in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level without rising again. |
-| Water overlay | A full-screen overlay draws two semi-transparent sine-wave layers, progressively blurs the page behind the water (stronger with water level and depth), and shows a `💧 NN%` label under the surface. |
-| Muffled audio | From **60% to 70%**, page `<audio>`/`<video>` is routed through a Web Audio lowpass filter whose cutoff falls from 20 kHz to 300 Hz. It stays at 300 Hz above 70%. |
-| 100% lockout | The canvas switches to `pointer-events:auto`, which blocks all clicks, and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). |
-| Drain | Clicking the extension's toolbar icon sets the level to 0 on every tab. |
+| Prompt detection | On a supported chat site, pressing Enter in the composer (when it has text) or clicking the send button adds **12%** to the water level. Enter + a send click within 600 ms count once. |
+| Speed multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. Rise speed = `0.03` viewport heights/sec × N. |
+| Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
+| Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). Water rises, sloshes, makes waves when things fall in, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
+| Floating junk | Each prompt drops 1–2 random objects (🦆 🩴 🍌 🪵 🧻 🧦 🍕 🥥 💩 📱 🔑 🪨 🥫 👟), plus one every 20–45 s. Each has a density: light ones bob on the waves and lean with the surface, heavy ones sink and slide along the bottom when tilted, soggy ones (🧻 🧦 🍕) soak up water and drown, bubbling. Floating junk washes out with the water when you pour. Junk left stranded on a dry screen fades out after 4 s. |
+| Muffled audio | From **60% to 70%**, page `<audio>`/`<video>` goes through a Web Audio lowpass filter whose cutoff falls from 20 kHz to 300 Hz. It stays at 300 Hz above 70%. |
+| 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging anywhere tilts the screen. |
 
-### Multiplier table
+### Supported chat sites
 
-| Model | × | Effort | × |
+| Site | Composer | Send button | Model selector (badge) |
 |---|---|---|---|
-| Haiku | 1 | low | 1 |
-| Sonnet | 1.5 | medium | 1.25 |
-| Opus | 2 | high / extended | 1.5 |
-| Fable | 2.5 | xhigh | 1.75 |
-| | | max | 2 |
+| claude.ai | `[data-testid="chat-input"]` | `[data-testid="chat-input-send"]` | `[data-testid="model-selector-dropdown"]` |
+| chatgpt.com | `form[data-chatgpt-composer] [contenteditable]`, `#prompt-textarea` | `[data-testid="send-button"]` (not the stop button) | `[data-testid="model-switcher-dropdown-button"]`, else the title bar's menu button |
+| gemini.google.com | `rich-textarea .ql-editor` | `button.send-button:not(.stop)` | `[data-test-id="bard-mode-menu-button"]` |
+| grok.com, chat.deepseek.com, perplexity.ai, chat.mistral.ai, copilot.microsoft.com, chat.qwen.ai, meta.ai | any `textarea` / contenteditable | `button[type=submit]` or a button labelled "send" | none (×1) |
 
-The tables are `MODELS` and `EFFORTS` in `src/config.js`. Key order matters: `xhigh` must come before `high`, because matching is a plain substring check.
+### Multiplier tables (`RATES` in `src/config.js`)
+
+| Site | Model × | Effort × |
+|---|---|---|
+| Claude | Haiku 1, Sonnet 1.5, Opus 2, Fable 2.5 | low 1, medium 1.25, high / extended 1.5, xhigh 1.75, max 2 |
+| ChatGPT | mini / Instant 1, Auto / GPT-4 1.25, GPT-5 1.5, Thinking / o3 1.75, Pro 2.5 | light 1, standard 1.25, extended 1.5, heavy 2 |
+| Gemini | Flash / Fast / Flash-Lite 1, Thinking 1.5, Pro 2, Ultra / Deep Think 2.5 | – |
+
+Matching is a plain substring check on the lowercased label, and the first hit wins, so key order matters (`xhigh` before `high`, `deep think` before `pro`).
+
+## Draining
+
+### 1. Tilt the screen
+
+Water stays level with the ground, so tilting the screen makes the surface slope. Past **~16°** it pours off the low edge (capped at 12% of the screen per 0.9 s), and floating junk goes with it. Tilt comes from any of these (they add up, clamped to ±45°):
+
+- **📷 CAMERA (webcam)**: the button appears in the bottom-left dock once the water is 10% high. Grant camera access, keep the laptop level for a moment (that's the reference), then tilt it sideways. Each frame (~10/s) is shrunk to 160×120 grayscale. Strong Sobel edges vote into a 36-bin × 5° orientation histogram. Bins 90° apart are folded together, because rooms are full of horizontal *and* vertical lines. The strongest orientation is refined with a weighted circular mean and compared with the reference. The result is smoothed (70% old / 30% new) and clamped to ±28°. Frames below 12% confidence are skipped. **Calibrate level** resets the reference; **Stop camera** stops the stream. The panel shows the preview, the estimated angle and a 🪣 that leans with it.
+  - It's a visual estimate, not a measurement. Point the webcam at something with straight lines (door frame, window, shelf), not a blank wall.
+  - Frames are analysed locally in the page and never stored or sent. The camera permission is per site, because the content script runs in the page.
+- **Motion sensor**: on devices that have one (tablets, 2-in-1s, Chromebooks), `devicemotion` gravity is used directly.
+- **Drag**: drag the 🫗 grip in the dock left/right (half the screen width ≈ 45°). At 100% you can drag anywhere. Let go and the screen swings back upright.
+
+Only the focused tab pours for real and writes the new level. Other tabs follow through storage, so the same pour isn't subtracted once per visible tab.
+
+### 2. Scoop with a Joy-Con
+
+Click the toolbar icon → **🎮 Scoop with a Joy-Con**. That opens the scooper window (`src/joycon/joycon.html`). Keep it open: it holds the WebHID connection.
+
+1. Pair the Joy-Con in your OS Bluetooth settings, then press **Connect** (Chrome/Edge desktop only; L, R and Pro Controller work, and two at once is fine).
+2. **Dip**: point the top (shoulder-button end) down past 35°. The bucket fills, faster in deep water. You feel it glug: low rumble with random glugs and bubble ticks.
+3. **Scoop**: flip it up past 30°. A full bucket takes 6% of the screen from every tab, and you feel a splash followed by droplets. Each page shows a 🪣 dipping in at a random spot, leaving a dent that refills as waves, and grabbing floating junk.
+4. Too slow (over 1.5 s between leaving the water and flipping up) and the water spills back, with a spill rumble.
+
+When idle, moving the controller makes a sloshing rumble that scales with the water level. With no water left, dipping just gives a dry scrape. Settings: rumble strength, **Flip tip direction** (if dip/flip feel reversed), **Test rumble**.
+
+The popup also has a small **cheat: drain everything** link for testing.
 
 ## Files
 
 ```
 manifest.json            MV3 manifest; lists the content scripts in load order
 src/
-  config.js              tuning knobs (all constants)
-  core.js                shared water state, storage sync, canvas, frame loop, flood(), outlinedText()
-  background.js          service worker: toolbar icon click drains the water
+  config.js              tuning knobs (all constants, per-site rate tables, junk list)
+  core.js                shared water state, storage sync, canvas, frame loop, flood(), drain(), hooks
+  sim.js                 shallow-water height field: waves, tilt, pouring; surfaceAt(), splash(), simRemove()…
+  drains/
+    camera.js            webcam tilt estimate (edge orientation histogram)
+    tilt.js              combines camera + motion sensor + drag into sim.tiltTarget
   effects/
-    waves.js             the two wave layers
+    objects.js           floating / sinking junk
+    waves.js             draws the water + page blur
+    drops.js             spray droplets, bubbles, the pour off a tilted edge
+    scoop.js             the 🪣 for each Joy-Con scoop
     percent.js           "💧 NN%" label
     lockout.js           100% click block + LOCK_MESSAGE
+    dock.js              bottom-left 🫗 tilt grip + 📷 CAMERA panel (shadow DOM)
     muffle.js            lowpass audio muffling
+  chat.js                chatSite(): shared prompt detection + speed badge
   systems/
-    claude.js            claude.ai: speed badge + prompt-send detection → flood()
+    claude.js, chatgpt.js, gemini.js, others.js   one chatSite() call per site
+  background.js          service worker: level badge on the toolbar icon
+  popup/                 toolbar popup: level, open the Joy-Con scooper, cheat drain
+  joycon/                Joy-Con scooper window: WebHID, scoop gesture, HD-rumble haptics
 ```
 
 ### How the modules fit together
 
 - All content scripts are plain (non-module) scripts listed in `manifest.json` → `content_scripts.js`. They run **in that order** and **share one global scope**. Keep top-level names unique across files; a duplicate `const` breaks the second file.
-- Load order: `config.js` → `core.js` → effects → systems.
-- **An effect** registers a per-frame function: `effects.push((f) => { ... })`, where `f = { ctx, t, d, w, h, top }`. It reads `water.level` (0–1). Effects run in manifest order, so later ones draw on top.
-- **A system** decides when the water rises. It calls `flood(multiplier)`, and core writes the new level to `chrome.storage`, which updates every tab.
-- To add a feature, create the file under `src/effects/` or `src/systems/` and add it to the manifest list. To disable one, remove it from the list.
+- Load order: `config.js` → `core.js` → `sim.js` → drains → effects → `chat.js` → systems.
+- **An effect** registers a per-frame function: `effects.push((f) => { ... })`, where `f = { ctx, t, dt, d, w, h }` (`d` = devicePixelRatio, `w`/`h` canvas size in device px). Effects run in manifest order: `sim.js` steps the physics first, and later effects draw on top. Read the water through `water.level` (0–1), `surfaceAt(x)`, `depthAt(x)`, `slopeAt(x)`, `flowAt(x)` (CSS px).
+- **A system** decides when the water rises. It calls `flood(multiplier)`, and core writes the new level to `chrome.storage`, which updates every tab. For a chat site, add `src/systems/<site>.js` with one `chatSite({ rates, composer, send, model })` call.
+- **A drain** lowers it: `drain(amount)` from a content script (batched storage write), or set `target` (and `scoop`) in storage from an extension page.
+- Hooks: `waterHooks.rise.push(fn(amount))` when the level goes up, `waterHooks.scoop.push(fn({ amount, t }))` when a Joy-Con scoop happens.
+- To add a feature, create the file and add it to the manifest list. To disable one, remove it from the list.
 - Check for name clashes before committing. This bundles the scripts in manifest order and parse-checks them:
   `python3 -c "import json;print('\n'.join(open(f).read() for f in json.load(open('manifest.json'))['content_scripts'][0]['js']))" > /tmp/b.js && node --check /tmp/b.js`
 
 ### Tuning knobs (`src/config.js`)
 
 - `STEP`: how much each prompt adds (default `0.12`).
-- `RISE_SPEED`: base rise speed at ×1 (default `0.03`/sec).
+- `RISE_SPEED`: base rise speed at ×1 (default `0.03`/sec). `DRAIN_SPEED`: how fast other tabs follow a drop.
+- `GRAVITY`, `WAVE_DAMP`, `VISCOSITY`, `COL`: how the water moves (faster sloshing, calmer, smoother, resolution).
+- `TILT_LIP` (16°), `MAX_TILT` (45°), `SPILL_RATE`, `MAX_POUR`: pouring.
+- `CAM_MAX_ANGLE`, `CAM_MIN_CONFIDENCE`, `CAM_SHOW_AT`: webcam tilt.
+- `OBJECTS`, `MAX_OBJECTS`: the junk list (`density` < 1 floats, `soak` makes it drown slowly).
 - `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.6` / `0.7`).
 - `LOCK_MESSAGE`: text shown at 100%.
+- Joy-Con: `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT` at the top of `src/joycon/joycon.js`.
 
 ## Known limits / TODO
 
-- **Effort detection is a guess.** It only works if claude.ai shows the effort in the model selector button's text. If it lives elsewhere, the effort part stays ×1. Inspect the real DOM and update `multiplier()`.
-- **claude.ai selectors may break.** claude.ai ships UI changes often. All selectors are `data-testid` (the most stable option), but re-check them if detection stops working.
+- **Chat site selectors may break.** All three apps ship UI changes often. ChatGPT's model switcher selector isn't confirmed (the badge falls back to ×1 if it's not found). The "other sites" list uses generic guesses and hasn't been checked against the live sites.
+- **Effort detection is a guess.** It only works if the effort appears in the model selector's label text.
 - **Attachment-only prompts** sent with Enter (no text) aren't counted.
-- **Audio muffling misses some sound:**
-  - Cross-origin media without CORS is skipped on purpose. Routing it through Web Audio would make it silent.
-  - Muffling only starts after the user has interacted with the page, because the browser's autoplay policy blocks it before that.
-  - Not covered: audio made with the page's own Web Audio (e.g. games), media inside shadow DOM, media in iframes (the script runs in the top frame only).
+- **Webcam tilt is an estimate.** It drifts with blank walls, moving backgrounds or strongly diagonal scenes; recalibrate or drag instead. Some sites block the camera with a Permissions-Policy, and then only drag/sensor tilt works there.
+- **Joy-Con**: WebHID only (Chrome/Edge desktop). The scooper window must stay open. The dip/flip axis follows the Joy-Con tester's frame (x = toward the shoulder buttons). If it feels reversed on your controller, tick **Flip tip direction**. Uses default IMU scaling, not the factory calibration from SPI.
+- **Audio muffling misses some sound:** cross-origin media without CORS (skipped on purpose; it would go silent), anything before the first user interaction (autoplay policy), the page's own Web Audio, shadow-DOM media, and iframes (the script runs in the top frame only).
 - **Lockout only blocks the mouse.** Keyboard and mouse-wheel scrolling still work at 100%.
-- **Not tested end-to-end yet** on live claude.ai. Only syntax-checked.
+- **Testing:** verified in Chromium with Playwright against mock pages that use each site's selectors, a synthetic webcam video (a scene rotated 20° → estimated +18.5°), and a fake WebHID Joy-Con. Not yet tested on the live chat sites or with a real Joy-Con.

@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Joy-Con Scooper</title>
+  <style>
+    :root { --bg: #f3f8ff; --fg: #0d2a52; --card: #fff; --muted: #6a7d99; --accent: #1565c0; --track: #dbe7f6; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0f1b2d; --fg: #dce9ff; --card: #172842; --muted: #8ea3c4; --accent: #4aa3ff; --track: #213551; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    p { margin: 6px 0; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .card { background: var(--card); border-radius: 12px; padding: 12px; margin: 12px 0; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    button { padding: 9px 14px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: 600 14px system-ui; cursor: pointer; }
+    button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .bar { height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; }
+    .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #4aa3ff, #1565c0); transition: width .15s; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .dev { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; }
+    .ladle { font-size: 44px; text-align: center; transition: transform .05s linear; }
+    .state { font-weight: 700; }
+    label { display: flex; gap: 6px; align-items: center; }
+    ol { padding-left: 20px; margin: 6px 0; }
+    #devices:empty::after { content: 'No Joy-Con connected yet.'; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>🎮 Joy-Con Scooper</h1>
+  <p class="muted">Keep this window open while you scoop: it holds the Bluetooth connection.</p>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <b>Water on screen</b><span id="level">0%</span>
+    </div>
+    <div class="bar"><div id="levelBar"></div></div>
+    <p class="muted" id="total">Scooped so far: 0%</p>
+  </div>
+
+  <div class="row">
+    <button id="connect">Connect Joy-Con</button>
+    <span class="muted" id="status"></span>
+  </div>
+
+  <div id="devices"></div>
+
+  <div class="card">
+    <b>How to scoop</b>
+    <ol>
+      <li>Pair the Joy-Con in your OS Bluetooth settings (hold the sync button on the rail), then press Connect.</li>
+      <li><b>Dip:</b> point the top of the Joy-Con (the shoulder-button end) down. The bucket fills; you feel it glug.</li>
+      <li><b>Scoop:</b> flip it up. Water leaves every tab, and you feel the splash.</li>
+      <li>Lift too slowly (over 1.5 s) and it spills back.</li>
+    </ol>
+    <div class="row">
+      <label>Rumble <input type="range" id="gain" min="0" max="1" step="0.05" value="0.8"></label>
+      <label><input type="checkbox" id="invert"> Flip tip direction</label>
+      <button class="ghost" id="test">Test rumble</button>
+    </div>
+  </div>
+
+  <p class="muted">Needs Chrome/Edge on desktop (WebHID). Joy-Con L, Joy-Con R and the Pro Controller work; you can use two at once.</p>
+  <script src="joycon.js"></script>
+</body>
+</html>

@@ -1,21 +1,32 @@
 {
   "manifest_version": 3,
   "name": "shitx flood",
-  "version": "1.0",
-  "description": "Water rises on every site each time you send a prompt on claude.ai.",
+  "version": "2.0",
+  "description": "Water rises on every site each time you send a prompt to an AI chat. Tilt the screen or scoop it out with a Joy-Con.",
   "permissions": ["storage"],
-  "action": { "default_title": "Drain the water" },
+  "action": { "default_title": "shitx flood", "default_popup": "src/popup/popup.html" },
   "background": { "service_worker": "src/background.js" },
   "content_scripts": [{
     "matches": ["<all_urls>"],
     "js": [
       "src/config.js",
       "src/core.js",
+      "src/sim.js",
+      "src/drains/camera.js",
+      "src/drains/tilt.js",
+      "src/effects/objects.js",
       "src/effects/waves.js",
+      "src/effects/drops.js",
+      "src/effects/scoop.js",
       "src/effects/percent.js",
       "src/effects/lockout.js",
+      "src/effects/dock.js",
       "src/effects/muffle.js",
-      "src/systems/claude.js"
+      "src/chat.js",
+      "src/systems/claude.js",
+      "src/systems/chatgpt.js",
+      "src/systems/gemini.js",
+      "src/systems/others.js"
     ],
     "run_at": "document_idle"
   }]
