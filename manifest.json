@@ -1,36 +1,54 @@
 {
   "manifest_version": 3,
-  "name": "shitx flood",
+  "name": "NamKhunHaiReepTak",
   "version": "2.0",
-  "description": "Water rises on every site each time you send a prompt to an AI chat. Tilt the screen, scoop it out with a Joy-Con, blow it away or drink it.",
-  "permissions": ["storage", "offscreen"],
-  "action": { "default_title": "shitx flood", "default_popup": "src/popup/popup.html" },
-  "background": { "service_worker": "src/background.js" },
-  "content_scripts": [{
-    "matches": ["<all_urls>"],
-    "js": [
-      "src/config.js",
-      "src/core.js",
-      "src/sim.js",
-      "src/drains/camera.js",
-      "src/drains/tilt.js",
-      "src/drains/blow.js",
-      "src/drains/drink.js",
-      "src/effects/waves.js",
-      "src/effects/drops.js",
-      "src/effects/scoop.js",
-      "src/effects/mouth.js",
-      "src/effects/mouse.js",
-      "src/effects/percent.js",
-      "src/effects/lockout.js",
-      "src/effects/dock.js",
-      "src/effects/muffle.js",
-      "src/chat.js",
-      "src/systems/claude.js",
-      "src/systems/chatgpt.js",
-      "src/systems/gemini.js",
-      "src/systems/others.js"
-    ],
-    "run_at": "document_idle"
-  }]
+  "description": "Every prompts you send uses water! and the data centers caused global warming.",
+  "permissions": [
+    "storage",
+    "offscreen"
+  ],
+  "action": {
+    "default_title": "NamKhunHaiReepTak",
+    "default_popup": "src/popup/popup.html"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/config.js",
+        "src/core.js",
+        "src/sim.js",
+        "src/drains/camera.js",
+        "src/drains/tilt.js",
+        "src/drains/blow.js",
+        "src/drains/drink.js",
+        "src/effects/waves.js",
+        "src/effects/drops.js",
+        "src/effects/scoop.js",
+        "src/effects/mouth.js",
+        "src/effects/mouse.js",
+        "src/effects/percent.js",
+        "src/effects/lockout.js",
+        "src/effects/dock.js",
+        "src/effects/muffle.js",
+        "src/chat.js",
+        "src/systems/claude.js",
+        "src/systems/chatgpt.js",
+        "src/systems/gemini.js",
+        "src/systems/others.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
 }
