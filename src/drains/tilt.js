@@ -2,7 +2,8 @@
 //  - the webcam (drains/camera.js), an estimate from the angle of straight edges it sees,
 //  - the device's motion sensor, on tablets / 2-in-1s / Chromebooks that have one,
 //  - dragging: the 🫗 grip in the dock, or anywhere on the screen once it's 100% full.
-// All of it ends up in sim.tiltTarget (radians, + = right edge down).
+// The focused tab sends the sum (radians, + = right edge down) to the shared sim (offscreen/sim.js).
+// Other tabs stay quiet, so only the tab you're looking at tilts and pours.
 
 const tiltIn = { sensor: 0, sensorAt: 0, drag: 0, dragging: false };
 
@@ -43,8 +44,17 @@ function dragTilter(el, onEnd) {
 
 dragTilter(canvas); // only receives pointer events while locked out at 100% (lockout.js)
 
+let sentTilt = NaN, tiltPort = null;
 effects.push(() => {
+  if (!simPort || !document.hasFocus()) return;
   const sensor = performance.now() - tiltIn.sensorAt < 1000 ? tiltIn.sensor : 0;
-  const t = sensor + tiltIn.drag + (cam.on ? (cam.angle * Math.PI) / 180 : 0);
-  sim.tiltTarget = Math.max(-MAX_TILT, Math.min(MAX_TILT, t));
+  const t = Math.max(-MAX_TILT, Math.min(MAX_TILT, sensor + tiltIn.drag + (cam.on ? (cam.angle * Math.PI) / 180 : 0)));
+  if (simPort === tiltPort && Math.abs(t - sentTilt) < 1e-3) return; // a new port always gets one
+  sentTilt = t;
+  tiltPort = simPort;
+  simPort.postMessage({ tilt: t });
+});
+addEventListener('blur', () => {
+  sentTilt = NaN; // resend on focus
+  simPort?.postMessage({ tilt: 0 });
 });

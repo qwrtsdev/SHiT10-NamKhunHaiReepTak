@@ -3,7 +3,7 @@
   "name": "shitx flood",
   "version": "2.0",
   "description": "Water rises on every site each time you send a prompt to an AI chat. Tilt the screen or scoop it out with a Joy-Con.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "offscreen"],
   "action": { "default_title": "shitx flood", "default_popup": "src/popup/popup.html" },
   "background": { "service_worker": "src/background.js" },
   "content_scripts": [{

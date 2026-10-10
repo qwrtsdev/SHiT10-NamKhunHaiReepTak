@@ -27,7 +27,9 @@ const MUFFLE_FROM = 0.6, MUFFLE_TO = 0.7;
 
 const LOCK_MESSAGE = 'กรุณาเทน้ำออกจากจอ';
 
-// Water physics (CSS px and seconds). See sim.js.
+// Water physics (px and seconds). See sim.js. One sim runs for all tabs (offscreen/sim.js) in a
+// SIM_W × SIM_H tank; each tab stretches it to its own viewport.
+const SIM_W = 1600, SIM_H = 900;
 const COL = 10; // column width of the height field
 const GRAVITY = 3000; // px/s²: higher = faster sloshing
 const WAVE_DAMP = 0.35; // fraction of wave motion lost per second
@@ -36,6 +38,7 @@ const MAX_TILT = 45 * Math.PI / 180; // tilt is clamped to ±45°
 const TILT_LIP = 16 * Math.PI / 180; // tilt past ~16° and water pours off the low edge of the screen
 const SPILL_RATE = 0.12; // how fast it pours (weir coefficient)
 const MAX_POUR = 0.12 / 0.9; // pour cap: 12% of the screen per 0.9 s
+const BUCKET_DIP = 0.3; // seconds from a Joy-Con scoop until the 🪣 reaches the water
 const MOUSE_SHOW_AT = 0.4; // show a running mouse when pouring starts above this water level
 
 // Webcam tilt (drains/camera.js): the angle of strong straight edges in the webcam image vs. a level reference.

@@ -15,7 +15,7 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 | Prompt detection | On a supported chat site, pressing Enter in the composer (when it has text) or clicking the send button adds **12%** to the water level. Enter + a send click within 600 ms count once. |
 | Speed multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. Rise speed = `0.03` viewport heights/sec × N. |
 | Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
-| Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
+| Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). One simulation runs for every tab, in the extension's offscreen document (`src/offscreen/`), in a fixed 1600×900 tank. Each visible tab gets its height field ~60 times a second and stretches it to its own window, so all tabs show the same waves. Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
 | Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
 | Muffled audio | From **60% to 70%**, page `<audio>`/`<video>` goes through a Web Audio lowpass filter whose cutoff falls from 20 kHz to 300 Hz. It stays at 300 Hz above 70%. |
 | 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging anywhere tilts the screen. |
@@ -51,7 +51,7 @@ Water stays level with the ground, so tilting the screen makes the surface slope
 - **Motion sensor**: on devices that have one (tablets, 2-in-1s, Chromebooks), `devicemotion` gravity is used directly.
 - **Drag**: drag the 🫗 grip in the dock left/right (half the screen width ≈ 45°). At 100% you can drag anywhere. Let go and the screen swings back upright.
 
-Only the focused tab pours for real and writes the new level. Other tabs follow through storage, so the same pour isn't subtracted once per visible tab.
+Only the focused tab sends its tilt to the shared simulation, and it drops back to 0 when the tab loses focus. A pour happens once, in the shared simulation, which writes the new level.
 
 ### 2. Scoop with a Joy-Con
 
@@ -59,7 +59,7 @@ Click the toolbar icon → **🎮 Scoop with a Joy-Con**. That opens the scooper
 
 1. Pair the Joy-Con in your OS Bluetooth settings, then press **Connect** (Chrome/Edge desktop only; L, R and Pro Controller work, and two at once is fine).
 2. **Dip**: point the top (shoulder-button end) down past 35°. The bucket fills, faster in deep water. You feel it glug: low rumble with random glugs and bubble ticks.
-3. **Scoop**: flip it up past 30°. A full bucket takes 6% of the screen from every tab, and you feel a splash followed by droplets. Each page shows a 🪣 dipping in at a random spot, leaving a dent that refills as waves, and grabbing floating junk.
+3. **Scoop**: flip it up past 30°. A full bucket takes 6% of the screen from every tab, and you feel a splash followed by droplets. The shared simulation picks a random spot, every visible page shows a 🪣 dipping in there, and the water comes out around it, leaving a dent that refills as waves.
 4. Too slow (over 1.5 s between leaving the water and flipping up) and the water spills back, with a spill rumble.
 
 When idle, moving the controller makes a sloshing rumble that scales with the water level. With no water left, dipping just gives a dry scrape. Settings: rumble strength, **Flip tip direction** (if dip/flip feel reversed), **Test rumble**.
@@ -74,13 +74,14 @@ src/
   config.js              tuning knobs (all constants and per-site rate tables)
   core.js                shared water state, storage sync, canvas, frame loop, flood(), drain(), hooks
   sim.js                 shallow-water height field: waves, tilt, pouring; surfaceAt(), splash(), simRemove()…
+                         (stepped only in offscreen/; tabs read it through surfaceAt() etc.)
   drains/
     camera.js            webcam tilt estimate (edge orientation histogram)
-    tilt.js              combines camera + motion sensor + drag into sim.tiltTarget
+    tilt.js              combines camera + motion sensor + drag; the focused tab sends it to the shared sim
   effects/
     waves.js             draws the water + page blur
     drops.js             spray droplets, bubbles, the pour off a tilted edge
-    scoop.js             the 🪣 for each Joy-Con scoop
+    scoop.js             draws the 🪣 for each Joy-Con scoop (the shared sim takes the water)
     mouse.js             a stream of 🐭 runs across the screen when high water starts pouring
     percent.js           "💧 NN%" label
     lockout.js           100% click block + LOCK_MESSAGE
@@ -89,7 +90,8 @@ src/
   chat.js                chatSite(): shared prompt detection + speed badge
   systems/
     claude.js, chatgpt.js, gemini.js, others.js   one chatSite() call per site
-  background.js          service worker: level badge on the toolbar icon
+  background.js          service worker: level badge; creates the offscreen sim and relays chrome.storage to it
+  offscreen/             the one shared simulation (offscreen document): steps sim.js, streams it to tabs
   popup/                 toolbar popup: level, open the Joy-Con scooper, cheat drain
   joycon/                Joy-Con scooper window: WebHID, scoop gesture, HD-rumble haptics
 ```
@@ -98,10 +100,11 @@ src/
 
 - All content scripts are plain (non-module) scripts listed in `manifest.json` → `content_scripts.js`. They run **in that order** and **share one global scope**. Keep top-level names unique across files; a duplicate `const` breaks the second file.
 - Load order: `config.js` → `core.js` → `sim.js` → drains → effects → `chat.js` → systems.
-- **An effect** registers a per-frame function: `effects.push((f) => { ... })`, where `f = { ctx, t, dt, d, w, h }` (`d` = devicePixelRatio, `w`/`h` canvas size in device px). Effects run in manifest order: `sim.js` steps the physics first, and later effects draw on top. Read the water through `water.level` (0–1), `surfaceAt(x)`, `depthAt(x)`, `slopeAt(x)`, `flowAt(x)` (CSS px).
+- **An effect** registers a per-frame function: `effects.push((f) => { ... })`, where `f = { ctx, t, dt, d, w, h }` (`d` = devicePixelRatio, `w`/`h` canvas size in device px). Effects run in manifest order; later effects draw on top. Read the water through `water.level` (0–1), `surfaceAt(x)`, `depthAt(x)`, `slopeAt(x)` (CSS px), `sim.tilt`, `sim.pour`. These mirror the shared simulation and are read-only in a tab: `simRemove()` / `splash()` there would be overwritten by the next update.
 - **A system** decides when the water rises. It calls `flood(multiplier)`, and core writes the new level to `chrome.storage`, which updates every tab. For a chat site, add `src/systems/<site>.js` with one `chatSite({ rates, composer, send, model })` call.
-- **A drain** lowers it: `drain(amount)` from a content script (batched storage write), or set `target` (and `scoop`) in storage from an extension page.
-- Hooks: `waterHooks.rise.push(fn(amount))` when the level goes up, `waterHooks.scoop.push(fn({ amount, t }))` when a Joy-Con scoop happens.
+- **A drain** lowers it: set `target` (and `scoop`) in `chrome.storage.local`. Pouring is done inside `src/offscreen/sim.js`.
+- **Shared simulation** (`src/offscreen/sim.js`): tabs connect a `chrome.runtime` port named `sim` while visible. A tab sends `{ tilt }` (radians); the sim sends `{ h, tilt, pour, level }` every 16 ms and `{ bucket: { x, amount } }` when a scoop starts. Offscreen documents can only use `chrome.runtime`, so `background.js` forwards storage changes to the sim (`{ type: 'storage' }`) and writes its pours back (`{ type: 'setTarget' }`).
+- Hooks: `waterHooks.rise.push(fn(amount))` when the level goes up, `waterHooks.scoop.push(fn({ x, amount }))` when a Joy-Con scoop starts (`x` = 0–1 across the screen).
 - To add a feature, create the file and add it to the manifest list. To disable one, remove it from the list.
 - Check for name clashes before committing. This bundles the scripts in manifest order and parse-checks them:
   `python3 -c "import json;print('\n'.join(open(f).read() for f in json.load(open('manifest.json'))['content_scripts'][0]['js']))" > /tmp/b.js && node --check /tmp/b.js`
@@ -127,4 +130,5 @@ src/
 - **Joy-Con**: WebHID only (Chrome/Edge desktop). The scooper window must stay open. The dip/flip axis follows the Joy-Con tester's frame (x = toward the shoulder buttons). If it feels reversed on your controller, tick **Flip tip direction**. Uses default IMU scaling, not the factory calibration from SPI.
 - **Audio muffling misses some sound:** cross-origin media without CORS (skipped on purpose; it would go silent), anything before the first user interaction (autoplay policy), the page's own Web Audio, shadow-DOM media, and iframes (the script runs in the top frame only).
 - **Lockout only blocks the mouse.** Keyboard and mouse-wheel scrolling still work at 100%.
+- **Shared sim tank is 1600×900.** Tabs stretch it to their own size, so in a window with a very different shape the waves look squashed. The surface can stutter slightly, because tabs draw the latest update without interpolating.
 - **Testing:** verified in Chromium with Playwright against mock pages that use each site's selectors, a synthetic webcam video (a scene rotated 20° → estimated +18.5°), and a fake WebHID Joy-Con. Not yet tested on the live chat sites or with a real Joy-Con.

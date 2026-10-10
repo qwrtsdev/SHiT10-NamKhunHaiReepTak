@@ -2,20 +2,22 @@
 // shallow-water equations on a staggered grid: depth h per column, flux q across column borders.
 // That gives travelling waves, sloshing, splashes from objects, and — when the screen is tilted —
 // a sloped surface with water pouring off the low edge.
-// Units: CSS px and seconds. sim.js runs as the first effect, so later effects draw the new state.
+// Units: px and seconds.
+// Loaded in two places: the offscreen document (offscreen/sim.js) steps it in a fixed SIM_W × SIM_H
+// tank, once for all tabs; each tab gets the height field, scaled to its viewport (core.js), and
+// only uses the read helpers (surfaceAt, depthAt, slopeAt) to draw.
 
 const sim = {
   n: 0, dx: COL, W: 0, H: 0,
   h: null, // depth per column (px)
   q: null, // flux across the border left of column i, n + 1 entries (px²/s, + = rightward)
-  tilt: 0, // current screen tilt in radians, + = right edge down (eased toward tiltTarget)
-  tiltTarget: 0,
+  tilt: 0, // current screen tilt in radians, + = right edge down (eased toward the tabs' tilt)
   pour: [0, 0], // px²/s currently pouring out of the left / right edge
 };
 
-function simInit(level) {
-  sim.W = innerWidth;
-  sim.H = innerHeight;
+function simInit(level, W, H) {
+  sim.W = W;
+  sim.H = H;
   sim.n = Math.max(8, Math.round(sim.W / COL));
   sim.dx = sim.W / sim.n;
   sim.h = new Float32Array(sim.n).fill(level * sim.H);
@@ -77,14 +79,6 @@ function depthAt(x) {
 // dy/dx of the surface (screen coordinates, + = surface goes down to the right).
 function slopeAt(x) {
   return (surfaceAt(x + sim.dx) - surfaceAt(x - sim.dx)) / (2 * sim.dx);
-}
-
-// Horizontal water velocity (px/s) near x.
-function flowAt(x) {
-  if (!sim.h) return 0;
-  const b = Math.max(1, Math.min(sim.n - 1, Math.round(x / sim.dx)));
-  const d = (sim.h[b - 1] + sim.h[b]) / 2;
-  return d > 1 ? sim.q[b] / d : 0;
 }
 
 // Push water away from x (strength > 0, e.g. something falling in) or toward it (< 0).
@@ -156,22 +150,3 @@ function simStep(dt, open) {
   }
   return out / (sim.W * sim.H);
 }
-
-effects.push((f) => {
-  if (!sim.h || sim.W !== innerWidth || sim.H !== innerHeight) simInit(sim.h ? simVolume() : water.level);
-  sim.tilt += (sim.tiltTarget - sim.tilt) * Math.min(1, f.dt * 6);
-
-  // Follow the shared level: rise at the model's speed, or fall when another tab / the Joy-Con drained.
-  let level = simVolume();
-  const goal = Math.min(1, water.target + water.held);
-  if (level < goal) simAdd(Math.min(water.speed * f.dt, goal - level));
-  else if (level > goal + 1e-4) simRemove(Math.min(DRAIN_SPEED * f.dt, level - goal));
-
-  if (f.dt > 0) {
-    const poured = simStep(f.dt, canDrainHere());
-    if (poured > 0) drain(poured);
-  }
-  level = simVolume();
-  if (water.target <= 0 && level < 0.002) sim.h.fill(0), sim.q.fill(0), (level = 0);
-  water.level = level;
-});
