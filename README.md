@@ -30,21 +30,41 @@ A joke Chrome extension (Manifest V3). Every prompt you send on claude.ai makes 
 | Fable | 2.5 | xhigh | 1.75 |
 | | | max | 2 |
 
-The tables are `MODELS` and `EFFORTS` at the top of `content.js`. Key order matters: `xhigh` must come before `high`, because matching is a plain substring check.
+The tables are `MODELS` and `EFFORTS` in `src/config.js`. Key order matters: `xhigh` must come before `high`, because matching is a plain substring check.
 
 ## Files
 
-| File | Purpose |
-|---|---|
-| `manifest.json` | MV3 manifest. Content script runs on `<all_urls>`; needs the `storage` permission. |
-| `content.js` | Everything on the page: prompt detection, badge, overlay drawing, audio muffling, lockout. |
-| `background.js` | Service worker. Drains the water when the toolbar icon is clicked. |
+```
+manifest.json            MV3 manifest; lists the content scripts in load order
+src/
+  config.js              tuning knobs (all constants)
+  core.js                shared water state, storage sync, canvas, frame loop, flood(), outlinedText()
+  background.js          service worker: toolbar icon click drains the water
+  effects/
+    waves.js             the two wave layers
+    percent.js           "💧 NN%" label
+    lockout.js           100% click block + LOCK_MESSAGE
+    muffle.js            lowpass audio muffling
+  systems/
+    claude.js            claude.ai: speed badge + prompt-send detection → flood()
+```
 
-### Tuning knobs (top of `content.js`)
+### How the modules fit together
+
+- All content scripts are plain (non-module) scripts listed in `manifest.json` → `content_scripts.js`. They run **in that order** and **share one global scope**. Keep top-level names unique across files; a duplicate `const` breaks the second file.
+- Load order: `config.js` → `core.js` → effects → systems.
+- **An effect** registers a per-frame function: `effects.push((f) => { ... })`, where `f = { ctx, t, d, w, h, top }`. It reads `water.level` (0–1). Effects run in manifest order, so later ones draw on top.
+- **A system** decides when the water rises. It calls `flood(multiplier)`, and core writes the new level to `chrome.storage`, which updates every tab.
+- To add a feature, create the file under `src/effects/` or `src/systems/` and add it to the manifest list. To disable one, remove it from the list.
+- Check for name clashes before committing. This bundles the scripts in manifest order and parse-checks them:
+  `python3 -c "import json;print('\n'.join(open(f).read() for f in json.load(open('manifest.json'))['content_scripts'][0]['js']))" > /tmp/b.js && node --check /tmp/b.js`
+
+### Tuning knobs (`src/config.js`)
 
 - `STEP`: how much each prompt adds (default `0.12`).
 - `RISE_SPEED`: base rise speed at ×1 (default `0.03`/sec).
 - `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.6` / `0.7`).
+- `LOCK_MESSAGE`: text shown at 100%.
 
 ## Known limits / TODO
 

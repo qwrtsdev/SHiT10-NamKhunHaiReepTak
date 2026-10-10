@@ -5,10 +5,18 @@
   "description": "Water rises on every site each time you send a prompt on claude.ai.",
   "permissions": ["storage"],
   "action": { "default_title": "Drain the water" },
-  "background": { "service_worker": "background.js" },
+  "background": { "service_worker": "src/background.js" },
   "content_scripts": [{
     "matches": ["<all_urls>"],
-    "js": ["content.js"],
+    "js": [
+      "src/config.js",
+      "src/core.js",
+      "src/effects/waves.js",
+      "src/effects/percent.js",
+      "src/effects/lockout.js",
+      "src/effects/muffle.js",
+      "src/systems/claude.js"
+    ],
     "run_at": "document_idle"
   }]
 }
