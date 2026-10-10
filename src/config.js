@@ -13,7 +13,7 @@ const RATES = {
     efforts: { xhigh: 1.75, max: 2, high: 1.5, extended: 1.5, medium: 1.25, low: 1 },
   },
   chatgpt: {
-    models: { mini: 1, instant: 1, auto: 1.25, 'gpt-4': 1.25, thinking: 1.75, pro: 2.5, o3: 1.75, 'gpt-5': 1.5 },
+    models: { mini: 1, instant: 1, auto: 1.25, 'gpt-4': 1.25, think: 1.75, pro: 2.5, o3: 1.75, 'gpt-5': 1.5 },
     efforts: { heavy: 2, extended: 1.5, standard: 1.25, light: 1 },
   },
   gemini: {

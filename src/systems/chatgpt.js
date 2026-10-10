@@ -9,6 +9,13 @@ if (location.hostname === 'chatgpt.com' || location.hostname === 'chat.openai.co
     model: [
       '[data-testid="model-switcher-dropdown-button"]',
       'header[data-app-shell-titlebar] button[aria-haspopup="menu"]',
+      'form[data-chatgpt-composer] .__composer-pill', // the "Think" pill
+      '[data-testid="composer-trailing-actions"]',
     ],
+    // In the chat box, just left of the right-hand buttons (Think / mic / send).
+    badgeAt: {
+      at: ['[data-testid="composer-trailing-actions"]', '[data-testid="composer-speech-button"]', '#composer-submit-button', '[data-testid="send-button"]'],
+      where: 'before',
+    },
   });
 }

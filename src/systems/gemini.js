@@ -6,5 +6,6 @@ if (location.hostname === 'gemini.google.com') {
     composer: 'rich-textarea .ql-editor[contenteditable="true"]',
     send: 'button.send-button:not(.stop), [data-test-id="send-button"]',
     model: ['[data-test-id="bard-mode-menu-button"]'],
+    badgeAt: { at: ['[data-test-id="bard-mode-menu-button"]'], where: 'after' }, // left of "Flash ⌄", same row
   });
 }

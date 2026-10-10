@@ -6,25 +6,44 @@
 //   send:     selector for the send button
 //   model:    selectors for the model selector, tried in order (optional; without it N = 1, no badge)
 
-function chatSite({ rates, composer, send, model = [] }) {
+// badgeAt: where the badge goes, { at: selectors, where: 'before' | 'after' } (default: after the model picker).
+function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, where: 'after' } }) {
+  // Same look on every site (small 💧, smaller muted ×N, like next to Claude's model picker), with its
+  // own sizing so the host's flex/grid layout can't stretch, wrap or squash it.
   const badge = document.createElement('span');
   badge.title = 'น้ำต่อข้อความ = จำนวนตัวอักษร × ตัวคูณนี้';
-  badge.style.cssText = 'align-self:center;margin:0 6px;font-size:12px;white-space:nowrap;opacity:.8;pointer-events:none';
+  badge.style.cssText = 'all:initial;display:inline-flex;align-items:center;gap:4px;flex:none;align-self:center;' +
+    'margin:0 8px;font-family:inherit;font-size:13px;line-height:1;color:inherit;white-space:nowrap;pointer-events:none';
+  const badgeText = document.createElement('span');
+  badgeText.style.cssText = 'font-size:11px;opacity:.65';
+  badge.append('💧', badgeText);
 
-  const selector = () => model.map((s) => document.querySelector(s)).find(Boolean);
+  const first = (selectors) => selectors.map((s) => document.querySelector(s)).find(Boolean);
   const multiplier = () => {
-    const label = selector()?.textContent.toLowerCase() ?? '';
+    // Every model/effort label found (ChatGPT splits them: model in the header, "Think" in the composer).
+    const label = model.map((s) => document.querySelector(s)?.textContent ?? '').join(' ').toLowerCase();
     const pick = (table) => Object.entries(table).find(([k]) => label.includes(k))?.[1] ?? 1;
     return pick(rates.models) * pick(rates.efforts);
   };
 
-  // Keep the badge next to the model selector; the apps re-render it, so re-check on DOM changes.
+  // Climb out of single-child wrappers to the element that sits in a horizontal row, so the badge lands
+  // beside it instead of wrapping below (Gemini).
+  function rowItem(el) {
+    for (let i = 0; i < 4 && el.parentElement; i++, el = el.parentElement) {
+      const p = el.parentElement, s = getComputedStyle(p);
+      if (s.display.includes('flex') && !s.flexDirection.startsWith('column') && p.children.length > 1) return el;
+    }
+    return el;
+  }
+
+  // Keep the badge in place; the apps re-render, so re-check on DOM changes.
   function placeBadge() {
-    const btn = selector();
-    if (!btn) return;
-    if (btn.nextElementSibling !== badge) btn.after(badge);
-    const text = `💧 ×${multiplier().toFixed(2).replace(/\.?0+$/, '')}`;
-    if (badge.textContent !== text) badge.textContent = text; // only write when changed → no loop
+    const anchor = first(badgeAt.at);
+    if (!anchor) return;
+    const item = rowItem(anchor);
+    if (badgeAt.where === 'before' ? item.previousElementSibling !== badge : item.nextElementSibling !== badge) item[badgeAt.where](badge);
+    const text = `×${multiplier().toFixed(2).replace(/\.?0+$/, '')}`;
+    if (badgeText.textContent !== text) badgeText.textContent = text; // only write when changed → no loop
   }
 
   const promptLength = (el) => [...(el?.value ?? el?.textContent ?? '').trim()].length;
