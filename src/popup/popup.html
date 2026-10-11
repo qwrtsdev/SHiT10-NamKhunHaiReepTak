@@ -75,6 +75,13 @@
     }
 
     .modes button {
+      flex: 1;
+      padding: 6px 2px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
       background: transparent;
       color: inherit;
       border: 1px solid #1565c0;
@@ -83,6 +90,61 @@
     .modes button.on {
       background: #1565c0;
       color: #fff;
+    }
+
+    .modes .ico {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .qr {
+      display: grid;
+      justify-items: center;
+      gap: 4px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .qr img {
+      width: 168px;
+      height: 168px;
+      image-rendering: pixelated;
+    }
+
+    .qr a {
+      color: #1565c0;
+      font-size: 11px;
+      word-break: break-all;
+      text-align: center;
+    }
+
+    .bucket {
+      height: 8px;
+      border-radius: 4px;
+      background: #dbe7f6;
+      overflow: hidden;
+    }
+
+    .bucket div {
+      height: 100%;
+      width: 0;
+      background: #4aa3ff;
+      transition: width .2s;
+    }
+
+    details input[type=url] {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 4px;
+      padding: 5px;
+      border: 1px solid #9db4d3;
+      border-radius: 6px;
+      font: 12px system-ui;
+    }
+
+    summary {
+      cursor: pointer;
     }
 
     .cam {
@@ -183,7 +245,7 @@
         color: #dce9ff;
       }
 
-      .bar {
+      .bar, .bucket {
         background: #213551;
       }
 
@@ -203,8 +265,9 @@
 
   <div id="mainView">
   <div class="modes">
-    <button id="modeCam" data-mode="cam">เทน้ำออก</button>
-    <button id="modeJoycon" data-mode="joycon">ตักน้ำออก</button>
+    <button id="modeCam" data-mode="cam"><span class="ico">📷</span>เทน้ำออก</button>
+    <button id="modeJoycon" data-mode="joycon"><span class="ico">🎮</span>ตักน้ำออก</button>
+    <button id="modePhone" data-mode="phone"><span class="ico">📱</span>ตักด้วยมือถือ</button>
   </div>
   <div id="noMode" class="muted">เลือกวิธีเอาน้ำออก (กดซ้ำเพื่อปิด)</div>
 
@@ -225,6 +288,25 @@
       <label><input type="checkbox" id="invert"> สลับทิศการตัก</label>
     </div>
   </div>
+  <div class="jc" id="phonePanel" hidden>
+    <div class="muted">สแกน QR ด้วยมือถือ ถือมือถือเหมือนกระบวย ชี้หัวมือถือลงเพื่อตักน้ำ แล้วสะบัดขึ้นเพื่อเทออก</div>
+    <div class="qr" id="qrBox">
+      <img id="qr" alt="QR">
+      <a id="phoneLink" target="_blank"></a>
+    </div>
+    <button id="showQr" class="ghost" hidden>📱 เชื่อมมือถือเครื่องอื่น</button>
+    <div id="phoneCard"></div>
+    <div id="phoneStatus" class="muted"></div>
+    <div id="phoneControls" class="jc" hidden>
+      <label>ความแรงการสั่น <input type="range" id="phoneGain" min="0" max="1" step="0.05"></label>
+      <label><input type="checkbox" id="phoneInvert"> สลับทิศการตัก</label>
+    </div>
+    <details class="muted">
+      <summary>ที่อยู่หน้าเว็บสำหรับมือถือ</summary>
+      <input type="url" id="phoneUrl" spellcheck="false">
+      <div>ต้องเป็น https:// (เช่น GitHub Pages ของ repo นี้: โฟลเดอร์ phone/)</div>
+    </details>
+  </div>
 
   <button id="cheat" class="cheat">ขอลองโกงหน่อย</button>
   </div>
@@ -243,6 +325,7 @@
     <button id="drainAll">เอาน้ำออกทั้งหมด</button>
     <button id="cheatBack" class="cheat">← กลับ</button>
   </div>
+  <script src="../vendor/qrcode.js"></script>
   <script src="popup.js"></script>
 </body>
 

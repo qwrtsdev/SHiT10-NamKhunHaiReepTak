@@ -1,6 +1,7 @@
-// Toolbar popup: current level, the drain picker (one at a time: tilt cam or Joy-Con), the tilt cam
-// (runs in a tab), Joy-Con pairing and status (the controllers run in the offscreen document,
-// offscreen/joycon.js), and the "ขอลองโกงหน่อย" view: set the water to any % or drain it all.
+// Toolbar popup: current level, the drain picker (one at a time: tilt cam, Joy-Con or phone), the tilt
+// cam (runs in a tab), Joy-Con pairing and status, the phone's QR and status (the controllers and the
+// phone link run in the offscreen document, offscreen/joycon.js and offscreen/phone.js), and the
+// "ขอลองโกงหน่อย" view: set the water to any % or drain it all.
 
 const $ = (id) => document.getElementById(id);
 const fill = document.querySelector('.fill'), pct = document.querySelector('.pct');
@@ -36,14 +37,16 @@ const stopAllCams = async () => {
   await Promise.all(tabs.map((t) => chrome.tabs.sendMessage(t.id, { type: 'cam', act: 'stop' }).catch(() => {})));
 };
 
-// One drain at a time. Choosing the Joy-Con stops every tilt cam; choosing the tilt cam disables the
-// Joy-Con (offscreen/joycon.js reads drainMode). Clicking the chosen one again turns it off.
+// One drain at a time. Choosing the Joy-Con or phone stops every tilt cam; the Joy-Con and phone only
+// scoop while chosen (offscreen/ reads drainMode). Clicking the chosen one again turns it off.
 let mode = null;
 function showMode() {
   for (const b of document.querySelectorAll('.modes button')) b.classList.toggle('on', b.dataset.mode === mode);
   $('noMode').hidden = !!mode;
   $('camPanel').hidden = mode !== 'cam';
   $('joyconPanel').hidden = mode !== 'joycon';
+  $('phonePanel').hidden = mode !== 'phone';
+  if (mode === 'phone') phone('start');
 }
 async function choose(next) {
   mode = mode === next ? null : next;
@@ -103,10 +106,78 @@ const sendSettings = () => joycon('settings', { settings: { gain: +$('gain').val
 $('gain').oninput = sendSettings;
 $('invert').onchange = sendSettings;
 
-chrome.runtime.sendMessage({ type: 'ensureSim' }).catch(() => {}).then(() => joycon('status'));
+// ---- phone (offscreen/phone.js hosts the link; the phone opens phone/index.html#pair=<id>) ----
+// The phone page has to be on https (motion sensors need a secure context), so it can't come from
+// the extension itself: by default it's this repo's GitHub Pages site.
+const PHONE_URL = 'https://qwrtsdev.github.io/shitx-flood/phone/';
+const PHONE_STATE = { ready: 'ชี้ลงเพื่อตัก', fill: 'กำลังตักน้ำ…', lift: 'สะบัดขึ้น!', cool: 'เทออกแล้ว', off: 'ปิดอยู่' };
+let phoneUrl = PHONE_URL, phoneQrFor = '', phoneSettingsLoaded = false, qrWanted = false;
+
+function phoneCardFor(s) {
+  const line = (cls, text) => Object.assign(document.createElement('div'), { className: cls, textContent: text });
+  const card = line('pad', '');
+  const name = `📱 ${s.info?.name || 'มือถือ'}`;
+  const [cls, text] = s.live ? ['ok', 'เชื่อมต่อแล้ว'] : ['wait', 'สัญญาณหาย…'];
+  card.append(line('', name), line(`state ${cls}`, text));
+  if (!s.st) return [card];
+  const bucket = line('bucket', ''), level = document.createElement('div');
+  level.style.width = `${Math.round(s.st.fill * 100)}%`;
+  bucket.append(level);
+  const info = line('muted', `🪣 ${PHONE_STATE[s.st.state] ?? s.st.state} · ตักไปแล้ว ${s.scoops} ครั้ง`);
+  return [card, bucket, info];
+}
+
+async function phone(act, extra = {}) {
+  const s = await chrome.runtime.sendMessage({ type: 'phone', act, ...extra }).catch(() => null);
+  if (!s?.id) return; // offscreen document not up yet
+  const url = `${phoneUrl}#pair=${s.id}`;
+  if (url !== phoneQrFor) {
+    const q = qrcode(0, 'M');
+    q.addData(url);
+    q.make();
+    $('qr').src = q.createDataURL(6, 2);
+    $('phoneLink').href = $('phoneLink').textContent = url;
+    phoneQrFor = url;
+  }
+  if (!phoneSettingsLoaded) {
+    $('phoneGain').value = s.settings.gain;
+    $('phoneInvert').checked = s.settings.invert;
+    phoneSettingsLoaded = true;
+  }
+  $('qrBox').hidden = s.live && !qrWanted;
+  $('showQr').hidden = !$('qrBox').hidden;
+  $('phoneControls').hidden = !s.connected;
+  $('phoneCard').replaceChildren(...(s.connected ? phoneCardFor(s) : []));
+  $('phoneStatus').textContent = s.connected ? ''
+    : !s.ready ? (s.error ? `กำลังต่อเซิร์ฟเวอร์ใหม่… (${s.error})` : 'กำลังเตรียมการเชื่อมต่อ…')
+    : 'รอมือถือสแกน QR แล้วกด "เริ่มตักน้ำ" บนมือถือ';
+}
+
+$('showQr').onclick = () => {
+  qrWanted = true;
+  phone('status');
+};
+const sendPhoneSettings = () => phone('settings', { settings: { gain: +$('phoneGain').value, invert: $('phoneInvert').checked } });
+$('phoneGain').oninput = sendPhoneSettings;
+$('phoneInvert').onchange = sendPhoneSettings;
+
+chrome.storage.local.get({ phoneUrl: PHONE_URL }, (s) => ($('phoneUrl').value = phoneUrl = s.phoneUrl));
+$('phoneUrl').onchange = () => {
+  let v = $('phoneUrl').value.trim().replace(/#.*$/, '') || PHONE_URL;
+  if (!/^https:\/\/|^http:\/\/localhost[:/]/.test(v)) v = `https://${v.replace(/^\w+:\/\//, '')}`;
+  $('phoneUrl').value = phoneUrl = v;
+  chrome.storage.local.set({ phoneUrl: v });
+  phone('status');
+};
+
+chrome.runtime.sendMessage({ type: 'ensureSim' }).catch(() => {}).then(() => {
+  joycon('status');
+  if (mode === 'phone') phone('start');
+});
 setInterval(() => {
   if (mode === 'cam') cam('status');
   if (mode === 'joycon') joycon('status');
+  if (mode === 'phone') phone('status');
 }, 250);
 
 function showCheat(on) {

@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d2a52">
+  <title>ตักน้ำด้วยมือถือ</title>
+  <!--
+    The phone side of the 📱 ตักด้วยมือถือ drain. Opened from the QR in the extension popup as
+    …/phone/#pair=<id>; must be served over https (motion sensors need a secure context), e.g. GitHub Pages.
+    Connects to the extension's offscreen document (src/offscreen/phone.js) over WebRTC (PeerJS) and runs
+    the same dip-and-flip scoop as the Joy-Con (src/joycon/joycon.js): point the top of the phone down to
+    fill the bucket, flip it up to throw the water out. Feedback: vibration (Android), sound (all phones,
+    iPhone can't vibrate from a web page), and the bucket on screen.
+  -->
+  <style>
+    :root {
+      --bg: #0d2a52;
+      --fg: #e8f2ff;
+      --muted: #9cb6d8;
+      --card: rgba(255, 255, 255, .08);
+      --water: #4aa3ff;
+      --ok: #5fd38d;
+      --warn: #ffb74d;
+      --bad: #ff6b6b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.45 system-ui, -apple-system, "Noto Sans Thai", sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+
+    main {
+      max-width: 460px;
+      min-height: 100%;
+      margin: 0 auto;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0;
+    }
+
+    .pill {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 99px;
+      background: var(--card);
+      white-space: nowrap;
+    }
+
+    .pill.ok { color: var(--ok); }
+    .pill.wait { color: var(--warn); }
+    .pill.fail { color: var(--bad); }
+
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      border: 0;
+      border-radius: 14px;
+      background: #1e88e5;
+      color: #fff;
+      font: 700 18px system-ui, -apple-system, "Noto Sans Thai", sans-serif;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: scale(.98);
+    }
+
+    button.ghost {
+      padding: 8px 12px;
+      width: auto;
+      font-size: 14px;
+      background: var(--card);
+    }
+
+    ol {
+      margin: 6px 0 0;
+      padding-left: 22px;
+    }
+
+    .stage {
+      flex: 1;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 10px;
+      text-align: center;
+    }
+
+    .bucket {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
+      background: rgba(255, 255, 255, .14);
+      transition: transform .2s;
+    }
+
+    .bucket .water {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 0;
+      background: linear-gradient(#7cc0ff, var(--water));
+    }
+
+    .bucket.lift {
+      animation: wobble .35s infinite alternate ease-in-out;
+    }
+
+    .bucket.cool {
+      transform: rotate(-35deg) translateY(-10px);
+    }
+
+    @keyframes wobble {
+      from { transform: rotate(-3deg); }
+      to { transform: rotate(3deg); }
+    }
+
+    .handle {
+      width: 120px;
+      height: 28px;
+      margin-bottom: -14px;
+      border: 5px solid rgba(255, 255, 255, .3);
+      border-bottom: 0;
+      border-radius: 60px 60px 0 0;
+    }
+
+    .say {
+      font-size: 24px;
+      font-weight: 800;
+      min-height: 1.45em;
+    }
+
+    .toast {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ok);
+      min-height: 1.45em;
+    }
+
+    .toast.bad {
+      color: var(--bad);
+    }
+
+    .timer {
+      width: 160px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--card);
+      overflow: hidden;
+      visibility: hidden;
+    }
+
+    .timer div {
+      height: 100%;
+      width: 100%;
+      background: var(--warn);
+    }
+
+    /* tip angle: -90° (pointing down) at the bottom … +90° (up) at the top */
+    .gauge {
+      position: relative;
+      width: 26px;
+      height: 150px;
+      border-radius: 13px;
+      background: var(--card);
+      overflow: hidden;
+    }
+
+    .gauge .zone {
+      position: absolute;
+      left: 0;
+      right: 0;
+    }
+
+    .gauge .dip {
+      bottom: 0;
+      background: rgba(74, 163, 255, .35);
+    }
+
+    .gauge .lift {
+      top: 0;
+      background: rgba(95, 211, 141, .35);
+    }
+
+    .gauge .mark {
+      position: absolute;
+      left: 3px;
+      right: 3px;
+      height: 6px;
+      margin-bottom: -3px;
+      border-radius: 3px;
+      background: #fff;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 22px;
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, .12);
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .bar div {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, #4aa3ff, #1565c0);
+      transition: width .3s;
+    }
+
+    .tools {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <h1>🪣 ตักน้ำด้วยมือถือ</h1>
+      <span id="link" class="pill wait">ยังไม่เชื่อมต่อ</span>
+    </header>
+
+    <section id="noPair" class="card" hidden>
+      <b>เปิดหน้านี้จาก QR ในส่วนขยาย</b>
+      <div class="muted">คลิกไอคอนส่วนขยายบนคอมพิวเตอร์ → <b>📱 ตักด้วยมือถือ</b> แล้วสแกน QR ด้วยกล้องมือถือ</div>
+    </section>
+
+    <section id="intro" hidden>
+      <div class="card">
+        <b>วิธีเล่น</b>
+        <ol class="muted">
+          <li>จับท้ายมือถือเหมือนถือกระบวย</li>
+          <li><b>ชี้หัวมือถือลง</b> ค้างไว้ ถังจะค่อยๆ เต็ม</li>
+          <li><b>สะบัดขึ้น</b> ภายใน 1.5 วินาที น้ำบนจอคอมจะลดลง</li>
+          <li>ช้าไป น้ำหกกลับหมด!</li>
+        </ol>
+      </div>
+      <p class="muted" id="introNote"></p>
+      <button id="start">เริ่มตักน้ำ</button>
+    </section>
+
+    <section id="play" class="stage" hidden>
+      <div class="say" id="say">…</div>
+      <div class="row">
+        <div>
+          <div class="handle"></div>
+          <div class="bucket" id="bucket">
+            <div class="water" id="bucketWater"></div>
+          </div>
+        </div>
+        <div class="gauge" title="มุมหัวมือถือ">
+          <div class="zone lift" id="gLift"></div>
+          <div class="zone dip" id="gDip"></div>
+          <div class="mark" id="gMark"></div>
+        </div>
+      </div>
+      <div class="timer" id="timer">
+        <div id="timerFill"></div>
+      </div>
+      <div class="toast" id="toast"></div>
+    </section>
+
+    <section id="panel" hidden>
+      <div class="stats">
+        <div class="card stat">
+          <span class="muted">น้ำบนจอคอม</span>
+          <b id="level">0%</b>
+          <div class="bar">
+            <div id="levelBar"></div>
+          </div>
+        </div>
+        <div class="card stat">
+          <span class="muted">ตักไปแล้ว</span>
+          <b id="scoops">0 ครั้ง</b>
+          <span class="muted" id="took"></span>
+        </div>
+      </div>
+      <p></p>
+      <div class="tools">
+        <button class="ghost" id="sound">🔊 เสียงเปิด</button>
+        <span class="muted" id="feel"></span>
+      </div>
+    </section>
+  </main>
+
+  <script src="../src/vendor/peerjs.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const r = Math.random;
+
+    const hostId = new URLSearchParams(location.hash.slice(1)).get('pair');
+    const UA = navigator.userAgent;
+    const IOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const VIB = !IOS && typeof navigator.vibrate === 'function';
+
+    // Thresholds come from the extension (cfg), so the phone scoops exactly like the Joy-Con.
+    const cfg = { dip: -35, lift: 30, timeout: 1500, gain: 0.8, invert: false, enabled: false };
+    let level = 0, sound = true, started = false;
+    // scoop state machine (mirrors JoyCon.gesture in src/joycon/joycon.js): ready → fill → lift → cool → ready
+    const b = { state: 'ready', fill: 0, since: 0, scoops: 0, pitch: 0, raw: null, motion: 0 };
+
+    function deviceName() {
+      if (/iPhone/.test(UA)) return 'iPhone';
+      if (/iPad/.test(UA) || IOS) return 'iPad';
+      const m = UA.match(/Android[^;)]*;\s*([^;)]+?)(?:\s+Build|\))/);
+      return m && m[1] !== 'K' ? m[1] : /Android/.test(UA) ? 'Android' : 'มือถือ';
+    }
+
+    // ---- link to the extension ----------------------------------------------------------------
+    let peer = null, conn = null, linked = false, heard = 0, retryTimer = 0;
+
+    function setLink(cls, text) {
+      $('link').className = `pill ${cls}`;
+      $('link').textContent = text;
+    }
+
+    const send = (m) => linked && conn?.open && conn.send(m);
+
+    function retry(ms = 3000) {
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => linked || connect(), ms);
+    }
+
+    function connect() {
+      if (!peer || peer.destroyed) {
+        setLink('wait', 'กำลังเชื่อมต่อ…');
+        peer = new Peer({ debug: 0 });
+        peer.on('open', dial);
+        peer.on('disconnected', () => setTimeout(() => peer.destroyed || peer.reconnect(), 2000));
+        peer.on('error', (e) => {
+          if (linked) return;
+          // peer-unavailable: the computer isn't on the PeerJS server (browser closed, offline,
+          // or another drain was never switched to the phone).
+          setLink('fail', e.type === 'peer-unavailable' ? 'หาคอมไม่เจอ ลองใหม่…' : 'เชื่อมต่อไม่ได้ ลองใหม่…');
+          if (e.type !== 'peer-unavailable') {
+            peer.destroy();
+            peer = null;
+          }
+          retry();
+        });
+      } else if (peer.open) dial();
+      else retry();
+    }
+
+    function dial() {
+      conn?.close();
+      const c = (conn = peer.connect(hostId, { serialization: 'json', reliable: true }));
+      const giveUp = setTimeout(() => !c.open && (c.close(), retry(0)), 10000);
+      c.on('open', () => {
+        clearTimeout(giveUp);
+        linked = true;
+        heard = performance.now();
+        setLink('ok', 'เชื่อมต่อแล้ว');
+        c.send({ t: 'hi', name: deviceName(), ios: IOS, vib: VIB });
+      });
+      c.on('data', (m) => c === conn && onData(m));
+      c.on('close', () => {
+        if (c !== conn) return;
+        linked = false;
+        conn = null;
+        setLink('fail', 'หลุด กำลังต่อใหม่…');
+        retry(1000);
+      });
+    }
+
+    function onData(m) {
+      heard = performance.now();
+      if (m.t === 'cfg') {
+        for (const k of Object.keys(cfg)) if (m[k] !== undefined) cfg[k] = m[k];
+        if (!cfg.enabled) Object.assign(b, { state: 'ready', fill: 0 });
+      }
+      if (m.t === 'lv') {
+        level = clamp(+m.v || 0, 0, 1);
+        if (cfg.enabled && !m.en) Object.assign(b, { state: 'ready', fill: 0 });
+        cfg.enabled = !!m.en;
+      }
+      if (m.t === 'got') {
+        level = clamp(+m.v || 0, 0, 1);
+        if (m.amount > 0) toast(`เอาน้ำออก ${(m.amount * 100).toFixed(1)}%`);
+        $('took').textContent = m.amount > 0 ? `ล่าสุด −${(m.amount * 100).toFixed(1)}%` : '';
+      }
+    }
+
+    // ---- sensors ------------------------------------------------------------------------------
+    // Pitch of the phone's long axis (+ = top end up). The device y axis' world-up component is sin β
+    // (Z-X'-Y'' Euler angles), whatever γ is; using angles avoids iOS/Android accelerometer sign differences.
+    addEventListener('deviceorientation', (e) => {
+      if (e.beta == null) return;
+      const p = (Math.asin(clamp(Math.sin((e.beta * Math.PI) / 180), -1, 1)) * 180) / Math.PI;
+      b.raw = b.raw == null ? p : b.raw + (p - b.raw) * 0.6;
+    });
+    addEventListener('devicemotion', (e) => {
+      const g = e.rotationRate;
+      if (g) b.motion = Math.hypot(g.alpha || 0, g.beta || 0, g.gamma || 0);
+    });
+
+    async function askMotion() {
+      for (const E of [window.DeviceOrientationEvent, window.DeviceMotionEvent]) {
+        if (typeof E?.requestPermission !== 'function') continue;
+        const ok = await E.requestPermission().catch(() => 'denied');
+        if (ok !== 'granted') return false;
+      }
+      return true;
+    }
+
+    let wake = null;
+    async function keepAwake() {
+      try {
+        wake = await navigator.wakeLock?.request('screen');
+      } catch {}
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !started) return;
+      keepAwake();
+      ac?.resume();
+      if (!linked) connect();
+    });
+
+    // ---- sound (iPhone's only feedback: Safari has no Vibration API) -------------------------
+    let ac = null, master = null, noiseBuf = null;
+    function audioInit() {
+      if (ac) return ac.resume();
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback'; // play even with the silent switch on
+      } catch {}
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      ac = new AC();
+      master = ac.createGain();
+      master.connect(ac.destination);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = r() * 2 - 1;
+      const s = ac.createBufferSource(); // unlock: iOS only plays after a sound started inside a tap
+      s.buffer = ac.createBuffer(1, 1, 22050);
+      s.connect(ac.destination);
+      s.start();
+    }
+    const loud = (v) => (sound && ac ? v * cfg.gain : 0);
+
+    function env(g, t, v, dur) {
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(v, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    }
+    function tone(f0, f1, dur, v, at = 0) {
+      v = loud(v);
+      if (v < 0.001) return;
+      const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      env(g, t, v, dur);
+      o.connect(g).connect(master);
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    }
+    function noise(dur, v, type, freq, at = 0) {
+      v = loud(v);
+      if (v < 0.001) return;
+      const t = ac.currentTime + at, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+      s.buffer = noiseBuf;
+      f.type = type;
+      f.frequency.value = freq;
+      env(g, t, v, dur);
+      s.connect(f).connect(g).connect(master);
+      s.start(t, r() * 0.5);
+      s.stop(t + dur + 0.02);
+    }
+    const vibe = (p) => VIB && cfg.gain > 0 && navigator.vibrate(Array.isArray(p) ? p.map((x, i) => (i % 2 ? x : Math.round(x * cfg.gain))) : Math.round(p * cfg.gain));
+
+    const bubble = () => tone(400 + r() * 500, 900 + r() * 700, 0.05, 0.12); // rising blip
+    const drip = (at = 0) => tone(900 + r() * 700, 1800 + r() * 900, 0.04, 0.1, at);
+    function glug() {
+      tone(140 + r() * 60, 320 + r() * 80, 0.12, 0.35);
+      noise(0.1, 0.08, 'lowpass', 400);
+      vibe(30 + 40 * b.fill);
+    }
+    function splash(size) {
+      noise(0.35, 0.4 + 0.4 * size, 'bandpass', 1100);
+      noise(0.25, 0.3, 'lowpass', 500);
+      for (let i = 0; i < 6 + 10 * size; i++) drip(0.08 + r() * 0.52);
+      vibe([60 + 80 * size, 40, 25, 60, 15, 80, 10]);
+    }
+    function spill(fill) {
+      noise(0.6, 0.2 + 0.3 * fill, 'lowpass', 700);
+      for (let i = 0; i < 8; i++) drip(i * 0.05);
+      vibe(Math.round(150 + 250 * fill));
+    }
+
+    // ---- the scoop ----------------------------------------------------------------------------
+    let toastTimer = 0;
+    function toast(text, bad = false) {
+      $('toast').textContent = text;
+      $('toast').className = `toast${bad ? ' bad' : ''}`;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => ($('toast').textContent = ''), 1800);
+    }
+
+    function gesture(now, dt) {
+      const p = b.pitch;
+      switch (b.state) {
+        case 'ready':
+          if (p < cfg.dip) Object.assign(b, { state: 'fill', fill: 0 });
+          break;
+        case 'fill': // bucket under water: fills faster when the water is deep
+          if (level > 0) b.fill = Math.min(1, b.fill + dt * 1.4 * clamp(level / 0.15, 0.25, 1));
+          if (p > -10) {
+            if (b.fill > 0.1) Object.assign(b, { state: 'lift', since: now });
+            else b.state = 'ready';
+          }
+          break;
+        case 'lift':
+          if (p > cfg.lift) {
+            send({ t: 'scoop', fill: Math.round(b.fill * 1000) / 1000 });
+            splash(b.fill);
+            b.scoops++;
+            Object.assign(b, { state: 'cool', since: now, fill: 0 });
+          } else if (p < cfg.dip) {
+            b.state = 'fill'; // dipped back in: keep what's in the bucket
+          } else if (now - b.since > cfg.timeout) {
+            spill(b.fill);
+            toast('ช้าไป น้ำหกหมด!', true);
+            Object.assign(b, { state: 'ready', fill: 0 });
+          }
+          break;
+        case 'cool':
+          if (now - b.since > 400) b.state = 'ready';
+          break;
+      }
+    }
+
+    // Continuous texture for the current state (Joy-Con rumble → sound + vibration pulses).
+    let lastSlosh = 0;
+    function texture(now, dt) {
+      const wet = level > 0;
+      if (b.state === 'ready' && wet && b.motion > 250 && now - lastSlosh > 250) {
+        lastSlosh = now; // water sloshing in the jug as you swing it
+        noise(0.2, 0.12 * (0.3 + 0.7 * level), 'lowpass', 450);
+        vibe(15);
+      } else if (b.state === 'fill') {
+        if (wet) {
+          if (r() < dt * 6) glug();
+          if (r() < dt * 14) bubble();
+        } else if (r() < dt * 8) { // dry scrape: nothing left to scoop
+          noise(0.05, 0.1, 'highpass', 2500);
+          vibe(8);
+        }
+      } else if (b.state === 'lift') {
+        vibe(Math.round(clamp(8 + 25 * b.fill, 8, 30))); // the weight of a full bucket (PWM)
+        if (r() < dt * 10) drip();
+      }
+    }
+
+    const SAY = {
+      off: 'เลือก 📱 ตักด้วยมือถือ ในส่วนขยายก่อน',
+      ready: 'ชี้หัวมือถือลงเพื่อตักน้ำ',
+      dry: 'ไม่มีน้ำให้ตักแล้ว 🎉',
+      fill: 'กำลังตัก… ค้างไว้',
+      fillDry: 'ถังแห้ง ไม่มีน้ำ',
+      lift: 'สะบัดขึ้นเลย!',
+      cool: 'เทออกแล้ว!',
+    };
+    const yPct = (deg) => ((clamp(deg, -90, 90) + 90) / 180) * 100;
+
+    function render(now) {
+      const on = cfg.enabled && linked;
+      const key = !linked ? 'ready' : !cfg.enabled ? 'off'
+        : b.state === 'ready' && level <= 0 ? 'dry' : b.state === 'fill' && level <= 0 ? 'fillDry' : b.state;
+      $('say').textContent = linked ? SAY[key] : 'รอเชื่อมต่อคอมพิวเตอร์…';
+      $('bucket').className = `bucket ${on ? b.state : ''}`;
+      $('bucketWater').style.height = `${b.fill * 100}%`;
+      const lifting = on && b.state === 'lift';
+      $('timer').style.visibility = lifting ? 'visible' : 'hidden';
+      if (lifting) $('timerFill').style.width = `${100 * (1 - clamp((now - b.since) / cfg.timeout, 0, 1))}%`;
+      $('gMark').style.bottom = `${yPct(b.pitch)}%`;
+      $('gDip').style.height = `${yPct(cfg.dip)}%`;
+      $('gLift').style.height = `${100 - yPct(cfg.lift)}%`;
+      $('level').textContent = `${Math.round(level * 100)}%`;
+      $('levelBar').style.width = `${level * 100}%`;
+      $('scoops').textContent = `${b.scoops} ครั้ง`;
+    }
+
+    let last = 0, lastSt = 0;
+    function tick() {
+      const now = performance.now(), dt = last ? Math.min(0.1, (now - last) / 1000) : 0.03;
+      last = now;
+      b.pitch = (b.raw ?? 0) * (cfg.invert ? -1 : 1);
+      // The computer sends the level at least every 2 s: much longer means the link is dead.
+      if (linked && now - heard > 7000) conn?.close();
+      if (cfg.enabled && linked) {
+        gesture(now, dt);
+        texture(now, dt);
+      }
+      if (now - lastSt > 100) {
+        lastSt = now;
+        send({ t: 'st', s: cfg.enabled ? b.state : 'off', f: Math.round(b.fill * 100) / 100, p: Math.round(b.pitch) });
+      }
+      render(now);
+    }
+
+    // ---- start --------------------------------------------------------------------------------
+    $('sound').onclick = () => {
+      sound = !sound;
+      $('sound').textContent = sound ? '🔊 เสียงเปิด' : '🔇 เสียงปิด';
+      if (sound) audioInit();
+    };
+
+    $('start').onclick = async () => {
+      audioInit();
+      if (!(await askMotion())) {
+        $('introNote').textContent = 'ไม่ได้รับสิทธิ์เซนเซอร์การเคลื่อนไหว iPhone: ตั้งค่า › แอป › Safari › เปิด "การเคลื่อนไหวและการวางแนว" แล้วโหลดหน้านี้ใหม่';
+        return;
+      }
+      started = true;
+      keepAwake();
+      $('intro').hidden = true;
+      $('play').hidden = $('panel').hidden = false;
+      connect();
+      setInterval(tick, 30);
+      tone(500, 1000, 0.08, 0.2); // hello blip
+      vibe(60);
+    };
+
+    $('feel').textContent = VIB ? 'สั่น + เสียง' : IOS ? 'iPhone สั่นจากเว็บไม่ได้ ใช้เสียงแทน' : 'ใช้เสียง';
+    if (!hostId) $('noPair').hidden = false;
+    else if (!window.isSecureContext) {
+      $('noPair').hidden = false;
+      $('noPair').querySelector('b').textContent = 'ต้องเปิดผ่าน https:// เซนเซอร์ถึงจะใช้ได้';
+    } else $('intro').hidden = false;
+  </script>
+</body>
+
+</html>
