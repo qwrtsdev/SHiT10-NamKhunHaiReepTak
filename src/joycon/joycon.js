@@ -3,7 +3,7 @@
 // Protocol notes (report layouts, subcommands, rumble encoding) follow the Joy-Con tester guide:
 // offsets are WebHID data indices (report ID excluded).
 
-const SCOOP_MAX = 0.06; // a full bucket takes 6% of the screen
+const SCOOP_MIN = 0.05, SCOOP_MAX = 0.1; // each scoop takes a random 5–10% of the screen
 const DIP_DEG = -35; // tip pointing this far down = bucket in the water
 const LIFT_DEG = 30; // tip this far up = scooped
 const LIFT_TIMEOUT = 1500; // ms; slower than this and the water spills back
@@ -158,7 +158,7 @@ class JoyCon {
       }
       case 'lift':
         if (p > LIFT_DEG) {
-          const got = scoopWater(this.fill * SCOOP_MAX);
+          const got = scoopWater(SCOOP_MIN + Math.random() * (SCOOP_MAX - SCOOP_MIN));
           if (got > 0) this.scoops++;
           this.splash(got > 0 ? this.fill : 0.15);
           this.state = 'cool';

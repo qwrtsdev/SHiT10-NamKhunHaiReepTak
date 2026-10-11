@@ -30,6 +30,7 @@
         "src/effects/scoop.js",
         "src/effects/percent.js",
         "src/effects/lockout.js",
+        "src/effects/drained.js",
         "src/effects/alerts.js",
         "src/effects/muffle.js",
         "src/chat.js",

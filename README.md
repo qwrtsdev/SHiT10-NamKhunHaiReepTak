@@ -1,6 +1,6 @@
 # shitx-flood
 
-A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. From 45% the page audio gets muffled and quieter until it sounds fully underwater. At 80% the chat box on supported chat sites stops taking clicks and typing. When water above 60% starts pouring, a mouse runs across the screen. At 100% you can't click anything until you get the water out. There are two ways to do that, both in the extension's toolbar popup: **📷 tilt the laptop** so it pours off the edge (the webcam notices), or **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water.
+A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. From 45% the page audio gets muffled and quieter until it sounds fully underwater. At 80% the whole chat input block on supported chat sites (box, attach, model picker, mic, send) stops taking clicks and typing. At 100% you can't click anything until you get the water out. There are two ways to do that, both in the extension's toolbar popup: **📷 tilt the laptop** so it pours off the edge (the webcam notices), or **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water.
 
 ## Install (dev)
 
@@ -19,7 +19,7 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 | Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
 | Muffled audio | From **45% to 70%** (then held), page `<audio>`/`<video>` goes through a Web Audio lowpass filter (cutoff 20 kHz → 300 Hz) and a volume fade down to `MUFFLE_MIN_VOLUME` (60%), so it sounds underwater but never goes silent. |
 | Water alerts | A message box at the top of the page when the water rises past **45%** ("ระดับน้ำเริ่มเพิ่มขึ้นสูงเรื่อยๆ เริ่มไม่ได้ยินเสียงแล้ว") and **80%** ("คุณใช้เยอะเกินไป โลกร้อนจนน้ำท่วมจนแป้นพิมพ์จมไปในน้ำแล้ว!"). It starts with 🔇 (45%) or 🌊 (80%), slides in, and slides away by itself after ~6 s. Each shows once, in the tab you're looking at, and again only after the level drops back below it (`alertsShown` in storage, `src/effects/alerts.js`). |
-| Chat box lock | From **80%**, the composer on supported chat sites is greyed out and refuses clicks, focus, typing, paste and drop. Clicking it shows a red, shaking popup: "⌨️ น้ำเข้าแป้นพิมพ์หมดแล้ว เข้าไม่ได้แล้ว!" (~3 s). It unlocks when the water drops below 80%. |
+| Chat box lock | From **80%**, the whole input block on supported chat sites (the chat box plus its buttons: attach, model picker, mic, send…) is greyed out and refuses clicks, focus, typing, paste and drop. Clicking anywhere on it shows a red, shaking popup: "⌨️ น้ำเข้าแป้นพิมพ์หมดแล้ว เข้าไม่ได้แล้ว!" (~3 s). It unlocks when the water drops below 80%. |
 | 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging on the page does nothing. The toolbar popup still works, since it's browser UI. |
 | Drain controls (popup, in Thai) | In the toolbar popup, **one at a time**: pick **เทน้ำออก** (tilt cam) or **ตักน้ำออก** (Joy-Con) (click the chosen one again to turn it off). The choice is stored as `drainMode`. Picking the tilt cam starts it on the current tab (live preview, status, **Calibrate level**) and makes a connected Joy-Con ignore motion and stay silent. Picking the Joy-Con stops the tilt cam in every tab and shows pairing, live status and rumble settings. |
 
@@ -36,11 +36,11 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 
 | Site | Model × | Effort × |
 |---|---|---|
-| Claude | Haiku 1, Sonnet 1.5, Opus 2, Fable 2.5 | low 1, medium 1.25, high / extended 1.5, xhigh 1.75, max 2 |
+| Claude | Haiku 1, Sonnet 2, Opus 3, Fable 4 | low 1.5, medium 2, high / extended 2.5, xhigh 3, max 3.5 |
 | ChatGPT | mini / Instant 1, Auto / GPT-4 1.25, GPT-5 1.5, Thinking / o3 1.75, Pro 2.5 | light 1, standard 1.25, extended 1.5, heavy 2 |
-| Gemini | Flash / Fast / Flash-Lite 1, Thinking 1.5, Pro 2, Ultra / Deep Think 2.5 | – |
+| Gemini | Flash-Lite 1, Flash 1.5, Pro 2 | thinking level ระดับต่ำสุด 1 (default), ปานกลาง 1.5, ระดับสูงสุด 2. It only shows in the open mode menu, so the last one clicked there is remembered (`localStorage` `waterGeminiEffort` on gemini.google.com) |
 
-Matching is a plain substring check on the lowercased label, and the first hit wins, so key order matters (`xhigh` before `high`, `deep think` before `pro`).
+Matching is a plain substring check on the lowercased label, and the first hit wins, so key order matters (`xhigh` before `high`, `flash-lite` before `flash`).
 
 ## Draining
 
@@ -63,7 +63,7 @@ Click the toolbar icon → **ตักน้ำออก** → **🎮 เชื�
 
 1. Connect the Joy-Con in your OS Bluetooth settings, then press **🎮 เชื่อมต่อจอยคอน** (Chrome/Edge desktop only; L, R and Pro Controller work, and two at once is fine).
 2. **Dip**: point the top (shoulder-button end) down past 35°. The bucket fills, faster in deep water. You feel it glug: low rumble with random glugs and bubble ticks.
-3. **Scoop**: flip it up past 30°. A full bucket takes 6% of the screen from every tab, and you feel a splash followed by droplets. The shared simulation picks a random spot, every visible page shows a 🪣 dipping in there, and the water comes out around it, leaving a dent that refills as waves.
+3. **Scoop**: flip it up past 30°. Each scoop takes a random 5–10% of the screen from every tab, and you feel a splash followed by droplets. The shared simulation picks a random spot, every visible page shows a 🪣 dipping in there, and the water comes out around it, leaving a dent that refills as waves.
 4. Too slow (over 1.5 s between leaving the water and flipping up) and the water spills back, with a spill rumble.
 
 When idle, moving the controller makes a sloshing rumble that scales with the water level. With no water left, dipping just gives a dry scrape. Settings: rumble strength, **Flip tip direction** (if dip/flip feel reversed).
@@ -86,6 +86,7 @@ src/
     scoop.js             draws the 🪣 for each Joy-Con scoop (the shared sim takes the water)
     percent.js           "💧 NN%" label
     lockout.js           100% click block + flashing red warning
+    drained.js           rainbow "น้ำหมดแล้ว" for 2 s when the water runs out
     alerts.js            message boxes at 45% and 80%
     muffle.js            lowpass audio muffling
   chat.js                chatSite(): shared prompt detection + speed badge
@@ -119,8 +120,8 @@ src/
 - `CAM_MAX_ANGLE`, `CAM_MIN_CONFIDENCE`: webcam tilt.
 - `MUFFLE_FROM` / `MUFFLE_TO`: audio muffle range (default `0.45` / `0.7`: lowpass 20 kHz → 300 Hz, fully muffled from 70% up).
 - `MUFFLE_MIN_VOLUME`: volume when fully muffled (default `0.6`; `0` = silent).
-- `INPUT_LOCK_AT`: level where chat composers are locked (default `0.8`).
-- Joy-Con: `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT` at the top of `src/joycon/joycon.js`.
+- `INPUT_LOCK_AT`: level where the chat input block is locked (default `0.8`).
+- Joy-Con: `SCOOP_MIN` / `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT` at the top of `src/joycon/joycon.js`.
 
 ## Known limits / TODO
 
