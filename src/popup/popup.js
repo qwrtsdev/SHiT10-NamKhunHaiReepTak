@@ -109,7 +109,7 @@ $('invert').onchange = sendSettings;
 // ---- phone (offscreen/phone.js hosts the link; the phone opens phone/index.html#pair=<id>) ----
 // The phone page has to be on https (motion sensors need a secure context), so it can't come from
 // the extension itself: by default it's this repo's GitHub Pages site.
-const PHONE_URL = 'https://qwrtsdev.github.io/shitx-flood/phone/';
+const PHONE_URL = 'https://qwrtsdev.github.io/sht10-namkhunhaireeptak/phone/';
 const PHONE_STATE = { ready: 'ชี้ลงเพื่อตัก', fill: 'กำลังตักน้ำ…', lift: 'สะบัดขึ้น!', cool: 'เทออกแล้ว', off: 'ปิดอยู่' };
 let phoneUrl = PHONE_URL, phoneQrFor = '', phoneSettingsLoaded = false, qrWanted = false;
 
