@@ -9,16 +9,17 @@ const DRAIN_SPEED = 0.35; // how fast a tab follows a level drop made elsewhere 
 // matched by substring against these tables; the first hit wins, so order matters ("xhigh" before "high").
 const RATES = {
   claude: {
-    models: { haiku: 1, sonnet: 1.5, opus: 2, fable: 2.5 },
-    efforts: { xhigh: 1.75, max: 2, high: 1.5, extended: 1.5, medium: 1.25, low: 1 },
+    models: { haiku: 1, sonnet: 2, opus: 3, fable: 4 },
+    efforts: { xhigh: 3, max: 3.5, high: 2.5, extended: 2.5, medium: 2, low: 1.5 },
   },
   chatgpt: {
     models: { mini: 1, instant: 1, auto: 1.25, 'gpt-4': 1.25, think: 1.75, pro: 2.5, o3: 1.75, 'gpt-5': 1.5 },
     efforts: { heavy: 2, extended: 1.5, standard: 1.25, light: 1 },
   },
   gemini: {
-    models: { 'deep think': 2.5, 'flash-lite': 1, flash: 1, fast: 1, thinking: 1.5, pro: 2, ultra: 2.5 },
-    efforts: {},
+    models: { 'flash-lite': 1, flash: 1.5, pro: 2 },
+    // Thinking level, from the mode menu (Thai UI): ระดับต่ำสุด / ปานกลาง / ระดับสูงสุด.
+    efforts: { 'ต่ำสุด': 1, 'ปานกลาง': 1.5, 'สูงสุด': 2 },
   },
   other: { models: {}, efforts: {} },
 };

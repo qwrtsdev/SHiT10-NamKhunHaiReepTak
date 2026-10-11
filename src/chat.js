@@ -5,9 +5,12 @@
 //   composer: selector for the typing box
 //   send:     selector for the send button
 //   model:    selectors for the model selector, tried in order (optional; without it N = 1, no badge)
+//   label:    () => extra text matched against the rate tables, for a setting not visible on the page
+//   box:      selector for the whole input block around the composer (card + its buttons), matched with
+//             composer.closest(box); locked as one piece from INPUT_LOCK_AT (falls back to the composer)
 
 // badgeAt: where the badge goes, { at: selectors, where: 'before' | 'after' } (default: after the model picker).
-function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, where: 'after' } }) {
+function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, where: 'after' }, box = 'form, fieldset', label: extraLabel = () => '' }) {
   // Same look on every site (small 💧, smaller muted ×N, like next to Claude's model picker), with its
   // own sizing so the host's flex/grid layout can't stretch, wrap or squash it.
   const badge = document.createElement('span');
@@ -19,9 +22,9 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
   badge.append('💧', badgeText);
 
   const first = (selectors) => selectors.map((s) => document.querySelector(s)).find(Boolean);
-  const multiplier = () => {
-    // Every model/effort label found (ChatGPT splits them: model in the header, "Think" in the composer).
-    const label = model.map((s) => document.querySelector(s)?.textContent ?? '').join(' ').toLowerCase();
+  // Every model/effort label found (ChatGPT splits them: model in the header, "Think" in the composer).
+  const modelLabel = () => [...model.map((s) => document.querySelector(s)?.textContent ?? ''), extraLabel()].join(' ').toLowerCase();
+  const multiplier = (label = modelLabel()) => {
     const pick = (table) => Object.entries(table).find(([k]) => label.includes(k))?.[1] ?? 1;
     return pick(rates.models) * pick(rates.efforts);
   };
@@ -36,13 +39,56 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
     return el;
   }
 
+  // A little bounce when the model/effort changes, so the new multiplier gets noticed.
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  function bounce() {
+    if (reduceMotion.matches) return;
+    badge.animate([
+      { transform: 'none' },
+      { transform: 'translateY(2px) scale(1.3, 0.7)', offset: 0.1 }, // squash before the jump
+      { transform: 'translateY(-18px) scale(1.6) rotate(-8deg)', offset: 0.3 },
+      { transform: 'translateY(0) scale(1.35, 0.75)', offset: 0.5 }, // lands flat
+      { transform: 'translateY(-8px) scale(1.2) rotate(5deg)', offset: 0.65 },
+      { transform: 'translateY(0) scale(1.1, 0.9)', offset: 0.8 },
+      { transform: 'translateY(-3px) scale(1.05)', offset: 0.9 },
+      { transform: 'none' },
+    ], { duration: 900, easing: 'ease-out' });
+    setTimeout(() => splashBadge(10, 28), 450); // first landing
+    setTimeout(() => splashBadge(5, 14), 720); // second, smaller
+  }
+
+  // Droplets that fly up from under the badge and fall away. Fixed on <body>, so the chat box can't clip them.
+  function splashBadge(count, power) {
+    const r = badge.getBoundingClientRect();
+    if (!r.width) return;
+    for (let i = 0; i < count; i++) {
+      const drop = document.createElement('span'), size = 3 + Math.random() * 4;
+      drop.style.cssText = `all:initial;position:fixed;left:${r.left + r.width / 2}px;top:${r.bottom - 4}px;` +
+        `width:${size}px;height:${size * 1.3}px;border-radius:50%;background:rgba(80,170,255,.9);pointer-events:none;z-index:2147483647`;
+      document.body.append(drop);
+      const angle = -Math.PI * (0.1 + 0.8 * Math.random()), dist = power * (0.6 + 0.6 * Math.random());
+      const dx = Math.cos(angle) * dist, dy = Math.sin(angle) * dist;
+      drop.animate([
+        { transform: 'translate(-50%, -50%)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`, opacity: 1, offset: 0.45 },
+        { transform: `translate(calc(-50% + ${dx * 1.5}px), calc(-50% + 12px)) scale(.4)`, opacity: 0 }, // falls back down
+      ], { duration: 550 + Math.random() * 200, easing: 'cubic-bezier(.2, .7, .4, 1)' }).onfinish = () => drop.remove();
+    }
+  }
+
   // Keep the badge in place; the apps re-render, so re-check on DOM changes.
+  let lastLabel = '';
   function placeBadge() {
     const anchor = first(badgeAt.at);
     if (!anchor) return;
     const item = rowItem(anchor);
     if (badgeAt.where === 'before' ? item.previousElementSibling !== badge : item.nextElementSibling !== badge) item[badgeAt.where](badge);
-    const text = `×${multiplier().toFixed(2).replace(/\.?0+$/, '')}`;
+    const label = modelLabel();
+    if (label !== lastLabel) {
+      if (lastLabel) bounce(); // not on the first label the page shows
+      lastLabel = label;
+    }
+    const text = `×${multiplier(label).toFixed(2).replace(/\.?0+$/, '')}`;
     if (badgeText.textContent !== text) badgeText.textContent = text; // only write when changed → no loop
   }
 
@@ -71,41 +117,47 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
     sent(promptLength(input));
   }, true);
 
-  // From INPUT_LOCK_AT the composer is greyed out and refuses clicks, focus and typing.
+  // From INPUT_LOCK_AT the whole input block (composer, attach, model picker, mic, send…) is greyed out
+  // and refuses clicks, focus and typing. Found from the composer each time: the apps re-render it.
   const lockStyle = document.createElement('style');
-  lockStyle.textContent = `${composer} { opacity: .4 !important; cursor: not-allowed !important; }`;
+  lockStyle.textContent = '[data-water-locked] { opacity: .4 !important; } ' +
+    '[data-water-locked], [data-water-locked] * { cursor: not-allowed !important; }';
   const locked = () => water.level >= INPUT_LOCK_AT;
-  const inComposer = (e) => locked() && e.target.closest?.(composer);
+  const inputBox = () => {
+    const c = document.querySelector(composer);
+    return c?.closest(box) ?? c;
+  };
+  const inBox = (e) => locked() && inputBox()?.contains(e.target);
   let refusedAt = 0;
   function refuse() {
-    if (performance.now() - refusedAt < 800) return; // one click can both land near the box and focus it
+    if (performance.now() - refusedAt < 800) return; // one click can both land on the box and focus it
     refusedAt = performance.now();
     showAlert({ icon: '⌨️', text: 'น้ำเข้าแป้นพิมพ์หมดแล้ว พิมพ์ไม่ได้แล้ว!', danger: true });
   }
-  for (const type of ['pointerdown', 'mousedown', 'click', 'beforeinput', 'paste', 'drop']) {
+  for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click', 'dblclick', 'contextmenu', 'beforeinput', 'paste', 'drop']) {
     document.addEventListener(type, (e) => {
-      if (!inComposer(e)) return;
+      if (!inBox(e)) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       if (type === 'pointerdown') refuse();
     }, true);
   }
-  // The visible box is usually bigger than the editable element: a click on its padding or placeholder
-  // misses the composer, so also react to the box around it, and to the app focusing the editor.
-  document.addEventListener('pointerdown', (e) => {
-    if (locked() && !e.target.closest?.(composer) && e.target.closest?.('fieldset, form')?.querySelector(composer)) refuse();
-  }, true);
+  // Keyboard focus (Tab) into the box.
   document.addEventListener('focusin', (e) => {
-    if (!inComposer(e)) return;
+    if (!inBox(e)) return;
     e.target.blur();
     refuse();
   }, true);
+  let lockedBox = null;
   effects.push(() => {
-    const locked = water.level >= INPUT_LOCK_AT;
-    if (locked === lockStyle.isConnected) return;
-    if (!locked) return lockStyle.remove();
-    document.head.append(lockStyle);
-    if (document.activeElement?.closest?.(composer)) document.activeElement.blur();
+    const el = locked() ? inputBox() : null;
+    if (el !== lockedBox) {
+      lockedBox?.removeAttribute('data-water-locked');
+      el?.setAttribute('data-water-locked', '');
+      if (el?.contains(document.activeElement)) document.activeElement.blur();
+      lockedBox = el;
+    }
+    if (!!el !== lockStyle.isConnected) el ? document.head.append(lockStyle) : lockStyle.remove();
   });
 
   document.addEventListener('click', (e) => {
