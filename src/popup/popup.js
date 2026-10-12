@@ -110,8 +110,7 @@ $('invert').onchange = sendSettings;
 // The phone page has to be on https (motion sensors need a secure context), so it can't come from
 // the extension itself: by default it's this repo's GitHub Pages site.
 const PHONE_URL = 'https://qwrtsdev.github.io/sht10-namkhunhaireeptak/phone/';
-const PHONE_STATE = { ready: 'ชี้ลงเพื่อตัก', fill: 'กำลังตักน้ำ…', lift: 'สะบัดขึ้น!', cool: 'เทออกแล้ว', off: 'ปิดอยู่' };
-let phoneUrl = PHONE_URL, phoneQrFor = '', phoneSettingsLoaded = false, qrWanted = false;
+let phoneQrFor = '', phoneSettingsLoaded = false, qrWanted = false;
 
 function phoneCardFor(s) {
   const line = (cls, text) => Object.assign(document.createElement('div'), { className: cls, textContent: text });
@@ -119,18 +118,13 @@ function phoneCardFor(s) {
   const name = `📱 ${s.info?.name || 'มือถือ'}`;
   const [cls, text] = s.live ? ['ok', 'เชื่อมต่อแล้ว'] : ['wait', 'สัญญาณหาย…'];
   card.append(line('', name), line(`state ${cls}`, text));
-  if (!s.st) return [card];
-  const bucket = line('bucket', ''), level = document.createElement('div');
-  level.style.width = `${Math.round(s.st.fill * 100)}%`;
-  bucket.append(level);
-  const info = line('muted', `🪣 ${PHONE_STATE[s.st.state] ?? s.st.state} · ตักไปแล้ว ${s.scoops} ครั้ง`);
-  return [card, bucket, info];
+  return [card];
 }
 
 async function phone(act, extra = {}) {
   const s = await chrome.runtime.sendMessage({ type: 'phone', act, ...extra }).catch(() => null);
   if (!s?.id) return; // offscreen document not up yet
-  const url = `${phoneUrl}#pair=${s.id}`;
+  const url = `${PHONE_URL}#pair=${s.id}`;
   if (url !== phoneQrFor) {
     const q = qrcode(0, 'M');
     q.addData(url);
@@ -161,14 +155,6 @@ const sendPhoneSettings = () => phone('settings', { settings: { gain: +$('phoneG
 $('phoneGain').oninput = sendPhoneSettings;
 $('phoneInvert').onchange = sendPhoneSettings;
 
-chrome.storage.local.get({ phoneUrl: PHONE_URL }, (s) => ($('phoneUrl').value = phoneUrl = s.phoneUrl));
-$('phoneUrl').onchange = () => {
-  let v = $('phoneUrl').value.trim().replace(/#.*$/, '') || PHONE_URL;
-  if (!/^https:\/\/|^http:\/\/localhost[:/]/.test(v)) v = `https://${v.replace(/^\w+:\/\//, '')}`;
-  $('phoneUrl').value = phoneUrl = v;
-  chrome.storage.local.set({ phoneUrl: v });
-  phone('status');
-};
 
 chrome.runtime.sendMessage({ type: 'ensureSim' }).catch(() => {}).then(() => {
   joycon('status');

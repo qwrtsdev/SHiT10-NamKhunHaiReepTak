@@ -119,34 +119,6 @@
       text-align: center;
     }
 
-    .bucket {
-      height: 8px;
-      border-radius: 4px;
-      background: #dbe7f6;
-      overflow: hidden;
-    }
-
-    .bucket div {
-      height: 100%;
-      width: 0;
-      background: #4aa3ff;
-      transition: width .2s;
-    }
-
-    details input[type=url] {
-      width: 100%;
-      box-sizing: border-box;
-      margin-top: 4px;
-      padding: 5px;
-      border: 1px solid #9db4d3;
-      border-radius: 6px;
-      font: 12px system-ui;
-    }
-
-    summary {
-      cursor: pointer;
-    }
-
     .cam {
       display: grid;
       gap: 6px;
@@ -245,7 +217,7 @@
         color: #dce9ff;
       }
 
-      .bar, .bucket {
+      .bar {
         background: #213551;
       }
 
@@ -301,11 +273,6 @@
       <label>ความแรงการสั่น <input type="range" id="phoneGain" min="0" max="1" step="0.05"></label>
       <label><input type="checkbox" id="phoneInvert"> สลับทิศการตัก</label>
     </div>
-    <details class="muted">
-      <summary>ที่อยู่หน้าเว็บสำหรับมือถือ</summary>
-      <input type="url" id="phoneUrl" spellcheck="false">
-      <div>ต้องเป็น https:// (เช่น GitHub Pages ของ repo นี้: โฟลเดอร์ phone/)</div>
-    </details>
   </div>
 
   <button id="cheat" class="cheat">ขอลองโกงหน่อย</button>
