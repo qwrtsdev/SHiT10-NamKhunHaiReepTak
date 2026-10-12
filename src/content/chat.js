@@ -1,6 +1,4 @@
-// Shared prompt detection for AI chat sites. Each file in systems/ calls chatSite() for its own host.
-// Adds a "💧 ×N" badge after the model selector and calls flood(prompt length, N) whenever a prompt is
-// sent: Enter in the composer (when it has text) or a click on the send button.
+// chatSite(): prompt detection, the 💧 ×N badge and the chat box lock for one AI chat site.
 //   rates:    a RATES entry from config.js
 //   composer: selector for the typing box
 //   send:     selector for the send button
@@ -11,8 +9,7 @@
 
 // badgeAt: where the badge goes, { at: selectors, where: 'before' | 'after' } (default: after the model picker).
 function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, where: 'after' }, box = 'form, fieldset', label: extraLabel = () => '' }) {
-  // Same look on every site (small 💧, smaller muted ×N, like next to Claude's model picker), with its
-  // own sizing so the host's flex/grid layout can't stretch, wrap or squash it.
+  // all:initial plus its own sizing, so the host's flex/grid layout can't stretch, wrap or squash it.
   const badge = document.createElement('span');
   badge.title = 'น้ำต่อข้อความ = จำนวนตัวอักษร × ตัวคูณนี้';
   badge.style.cssText = 'all:initial;display:inline-flex;align-items:center;gap:4px;flex:none;align-self:center;' +
@@ -39,25 +36,24 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
     return el;
   }
 
-  // A little bounce when the model/effort changes, so the new multiplier gets noticed.
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   function bounce() {
     if (reduceMotion.matches) return;
     badge.animate([
       { transform: 'none' },
-      { transform: 'translateY(2px) scale(1.3, 0.7)', offset: 0.1 }, // squash before the jump
+      { transform: 'translateY(2px) scale(1.3, 0.7)', offset: 0.1 },
       { transform: 'translateY(-18px) scale(1.6) rotate(-8deg)', offset: 0.3 },
-      { transform: 'translateY(0) scale(1.35, 0.75)', offset: 0.5 }, // lands flat
+      { transform: 'translateY(0) scale(1.35, 0.75)', offset: 0.5 },
       { transform: 'translateY(-8px) scale(1.2) rotate(5deg)', offset: 0.65 },
       { transform: 'translateY(0) scale(1.1, 0.9)', offset: 0.8 },
       { transform: 'translateY(-3px) scale(1.05)', offset: 0.9 },
       { transform: 'none' },
     ], { duration: 900, easing: 'ease-out' });
-    setTimeout(() => splashBadge(10, 28), 450); // first landing
-    setTimeout(() => splashBadge(5, 14), 720); // second, smaller
+    setTimeout(() => splashBadge(10, 28), 450);
+    setTimeout(() => splashBadge(5, 14), 720);
   }
 
-  // Droplets that fly up from under the badge and fall away. Fixed on <body>, so the chat box can't clip them.
+  // Fixed on <body>, so the chat box can't clip the droplets.
   function splashBadge(count, power) {
     const r = badge.getBoundingClientRect();
     if (!r.width) return;
@@ -71,7 +67,7 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
       drop.animate([
         { transform: 'translate(-50%, -50%)', opacity: 1 },
         { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`, opacity: 1, offset: 0.45 },
-        { transform: `translate(calc(-50% + ${dx * 1.5}px), calc(-50% + 12px)) scale(.4)`, opacity: 0 }, // falls back down
+        { transform: `translate(calc(-50% + ${dx * 1.5}px), calc(-50% + 12px)) scale(.4)`, opacity: 0 },
       ], { duration: 550 + Math.random() * 200, easing: 'cubic-bezier(.2, .7, .4, 1)' }).onfinish = () => drop.remove();
     }
   }
@@ -117,8 +113,7 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
     sent(promptLength(input));
   }, true);
 
-  // From INPUT_LOCK_AT the whole input block (composer, attach, model picker, mic, send…) is greyed out
-  // and refuses clicks, focus and typing. Found from the composer each time: the apps re-render it.
+  // Found from the composer each time: the apps re-render it.
   const lockStyle = document.createElement('style');
   lockStyle.textContent = '[data-water-locked] { opacity: .4 !important; } ' +
     '[data-water-locked], [data-water-locked] * { cursor: not-allowed !important; }';
@@ -142,7 +137,6 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
       if (type === 'pointerdown') refuse();
     }, true);
   }
-  // Keyboard focus (Tab) into the box.
   document.addEventListener('focusin', (e) => {
     if (!inBox(e)) return;
     e.target.blur();

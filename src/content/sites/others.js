@@ -1,5 +1,4 @@
-// Other chat sites, best effort: generic composer / send-button guesses, no model badge (×1).
-// Not checked against the live sites; add a proper systems/<site>.js when one misbehaves.
+// Best-effort generic selectors, untested on the live sites; no model badge (×1).
 const OTHER_CHAT_HOSTS = [
   'grok.com', 'chat.deepseek.com', 'www.perplexity.ai', 'perplexity.ai',
   'chat.mistral.ai', 'copilot.microsoft.com', 'chat.qwen.ai', 'www.meta.ai',

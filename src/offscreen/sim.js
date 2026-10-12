@@ -1,8 +1,11 @@
-// The one water simulation shared by every tab. Runs in the extension's offscreen document
-// (created by background.js), so waves, tilt and pours are computed once instead of once per tab.
-// Tabs connect a port named 'sim' while visible. They send { tilt } (focused tab only) and get
-// { h, tilt, pour, level } every tick, plus { bucket: { x, amount } } when a Joy-Con scoop starts.
-// Offscreen documents only get chrome.runtime, so background.js relays chrome.storage both ways.
+// One simulation for every tab. Tabs connect a 'sim' port while visible, send { tilt } (focused tab)
+// and get { h, tilt, pour, level } every tick, plus { bucket: { x, amount } } when a scoop starts.
+// background.js relays storage: `stored` is the state at startup, onStorage(fn) gets every change.
+
+const stored = chrome.runtime.sendMessage({ type: 'getStored' });
+const onStorage = (fn) => chrome.runtime.onMessage.addListener((m) => {
+  if (m.type === 'storage') fn(m);
+});
 
 const TICK = 16; // ms between steps / broadcasts
 const ports = new Set();
@@ -12,15 +15,14 @@ let written = -1, drainTimer = 0, lastTick = performance.now(), wasIdle = false;
 
 simInit(0, SIM_W, SIM_H);
 
-chrome.runtime.sendMessage({ type: 'simInit' }).then((s) => {
+stored.then((s) => {
   target = s.target ?? 0;
   speed = s.speed ?? RISE_SPEED;
   simInit(target, SIM_W, SIM_H); // already flooded: start at the current level, no re-rise
   ready = true;
 });
 
-chrome.runtime.onMessage.addListener((m) => {
-  if (m.type !== 'storage') return;
+onStorage((m) => {
   if (m.speed != null) speed = m.speed;
   // Ignore the echo of our own drain write: we've poured more since then.
   if (m.target != null && m.target !== written) target = m.target;
@@ -33,7 +35,7 @@ chrome.runtime.onConnect.addListener((p) => {
   wasIdle = false; // send the newcomer the current state on the next tick
   p.onMessage.addListener((m) => {
     if (m.tilt == null) return;
-    tiltTarget = Math.max(-MAX_TILT, Math.min(MAX_TILT, m.tilt));
+    tiltTarget = clamp(m.tilt, -MAX_TILT, MAX_TILT);
     tiltFrom = p;
   });
   p.onDisconnect.addListener(() => {
@@ -53,7 +55,7 @@ function drain(amount) {
   }, 150);
 }
 
-// A Joy-Con scoop: the joycon window already lowered the stored level. Keep that water on screen
+// A Joy-Con or phone scoop: offscreen/drain.js already lowered the stored level. Keep that water on screen
 // (held) until the 🪣 tabs draw at x reaches it, then take it out around x; the dent refills as waves.
 function scoop(amount) {
   const level = simVolume();
@@ -73,7 +75,6 @@ function scoop(amount) {
 
 function step(dt) {
   sim.tilt += (tiltTarget - sim.tilt) * Math.min(1, dt * 6);
-  // Follow the shared level: rise at the model's speed, or fall when the Joy-Con / cheat drained.
   const level = simVolume(), goal = Math.min(1, target + held);
   if (level < goal) simAdd(Math.min(speed * dt, goal - level));
   else if (level > goal + 1e-4) simRemove(Math.min(DRAIN_SPEED * dt, level - goal));

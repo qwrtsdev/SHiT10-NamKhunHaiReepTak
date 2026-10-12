@@ -1,9 +1,7 @@
-// Page audio goes through a lowpass filter and a volume fade as the water goes MUFFLE_FROM → MUFFLE_TO.
-
 let audioCtx, lowpass, volume, muffling = false;
 const muffledEls = new WeakSet();
 
-const muffleAmount = () => Math.min(1, Math.max(0, (water.level - MUFFLE_FROM) / (MUFFLE_TO - MUFFLE_FROM)));
+const muffleAmount = () => clamp((water.level - MUFFLE_FROM) / (MUFFLE_TO - MUFFLE_FROM), 0, 1);
 
 // ponytail: only <audio>/<video> elements in the DOM; page-made Web Audio and shadow-DOM media aren't muffled.
 async function muffle(el) {

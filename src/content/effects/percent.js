@@ -1,5 +1,3 @@
-// "💧 NN%" label just under the water surface.
-
 effects.push((f) => {
   if (water.level <= 0) return;
   const y = Math.min(f.h - 6 * f.d, (surfaceAt(40) + 34) * f.d);

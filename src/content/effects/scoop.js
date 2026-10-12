@@ -1,6 +1,4 @@
-// A Joy-Con scoop (joycon/joycon.js) shows up here as a 🪣 that dips into the water and lifts away
-// dripping. The shared sim (offscreen/sim.js) picks the spot and takes the water out there, at the
-// moment the bucket reaches it; this only draws the bucket.
+// Only draws the 🪣; offscreen/sim.js takes the water out when the bucket reaches it.
 
 const buckets = [];
 const BUCKET_TIME = 1.1; // seconds

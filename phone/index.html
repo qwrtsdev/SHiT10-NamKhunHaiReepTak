@@ -6,14 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d2a52">
   <title>ตักน้ำด้วยมือถือ</title>
-  <!--
-    The phone side of the 📱 ตักด้วยมือถือ drain. Opened from the QR in the extension popup as
-    …/phone/#pair=<id>; must be served over https (motion sensors need a secure context), e.g. GitHub Pages.
-    Connects to the extension's offscreen document (src/offscreen/phone.js) over WebRTC (PeerJS) and runs
-    the same dip-and-flip scoop as the Joy-Con (src/joycon/joycon.js): point the top of the phone down to
-    fill the bucket, flip it up to throw the water out. Feedback: vibration (Android) and the bucket on
-    screen. The sounds play on the computer (src/offscreen/sound.js), not here.
-  -->
+  <!-- Opened from the popup QR as …/phone/#pair=<id>; must be on https (motion sensors need a secure context). -->
   <style>
     :root {
       --bg: #0d2a52;
@@ -351,6 +344,7 @@
   </main>
 
   <script src="../src/vendor/peerjs.min.js"></script>
+  <script src="../src/shared/scoop.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -364,8 +358,7 @@
     // Thresholds come from the extension (cfg), so the phone scoops exactly like the Joy-Con.
     const cfg = { dip: -35, lift: 30, timeout: 1500, gain: 0.8, invert: false, enabled: false };
     let level = 0, started = false;
-    // scoop state machine (mirrors JoyCon.gesture in src/joycon/joycon.js): ready → fill → lift → cool → ready
-    const b = { state: 'ready', fill: 0, since: 0, scoops: 0, pitch: 0, raw: null, motion: 0 };
+    const b = { scoops: 0, pitch: 0, raw: null, motion: 0 };
 
     function deviceName() {
       if (/iPhone/.test(UA)) return 'iPhone';
@@ -374,7 +367,6 @@
       return m && m[1] !== 'K' ? m[1] : /Android/.test(UA) ? 'Android' : 'มือถือ';
     }
 
-    // ---- link to the extension ----------------------------------------------------------------
     let peer = null, conn = null, linked = false, heard = 0, retryTimer = 0;
 
     function setLink(cls, text) {
@@ -435,11 +427,11 @@
       heard = performance.now();
       if (m.t === 'cfg') {
         for (const k of Object.keys(cfg)) if (m[k] !== undefined) cfg[k] = m[k];
-        if (!cfg.enabled) Object.assign(b, { state: 'ready', fill: 0 });
+        if (!cfg.enabled) scoop.reset();
       }
       if (m.t === 'lv') {
         level = clamp(+m.v || 0, 0, 1);
-        if (cfg.enabled && !m.en) Object.assign(b, { state: 'ready', fill: 0 });
+        if (cfg.enabled && !m.en) scoop.reset();
         cfg.enabled = !!m.en;
       }
       if (m.t === 'got') {
@@ -449,7 +441,6 @@
       }
     }
 
-    // ---- sensors ------------------------------------------------------------------------------
     // Pitch of the phone's long axis (+ = top end up). The device y axis' world-up component is sin β
     // (Z-X'-Y'' Euler angles), whatever γ is; using angles avoids iOS/Android accelerometer sign differences.
     addEventListener('deviceorientation', (e) => {
@@ -485,11 +476,10 @@
 
     const vibe = (p) => VIB && cfg.gain > 0 && navigator.vibrate(Array.isArray(p) ? p.map((x, i) => (i % 2 ? x : Math.round(x * cfg.gain))) : Math.round(p * cfg.gain));
 
-    const glug = () => vibe(30 + 40 * b.fill);
+    const glug = () => vibe(30 + 40 * scoop.fill);
     const splash = (size) => vibe([60 + 80 * size, 40, 25, 60, 15, 80, 10]);
     const spill = (fill) => vibe(Math.round(150 + 250 * fill));
 
-    // ---- the scoop ----------------------------------------------------------------------------
     let toastTimer = 0;
     function toast(text, bad = false) {
       $('toast').textContent = text;
@@ -498,52 +488,30 @@
       toastTimer = setTimeout(() => ($('toast').textContent = ''), 1800);
     }
 
-    function gesture(now, dt) {
-      const p = b.pitch;
-      switch (b.state) {
-        case 'ready':
-          if (p < cfg.dip) Object.assign(b, { state: 'fill', fill: 0 });
-          break;
-        case 'fill': // bucket under water: fills faster when the water is deep
-          if (level > 0) b.fill = Math.min(1, b.fill + dt * 1.4 * clamp(level / 0.15, 0.25, 1));
-          if (p > -10) {
-            if (b.fill > 0.1) Object.assign(b, { state: 'lift', since: now });
-            else b.state = 'ready';
-          }
-          break;
-        case 'lift':
-          if (p > cfg.lift) {
-            send({ t: 'scoop', fill: Math.round(b.fill * 1000) / 1000 });
-            splash(b.fill);
-            b.scoops++;
-            Object.assign(b, { state: 'cool', since: now, fill: 0 });
-          } else if (p < cfg.dip) {
-            b.state = 'fill'; // dipped back in: keep what's in the bucket
-          } else if (now - b.since > cfg.timeout) {
-            spill(b.fill);
-            toast('ช้าไป น้ำหกหมด!', true);
-            Object.assign(b, { state: 'ready', fill: 0 });
-          }
-          break;
-        case 'cool':
-          if (now - b.since > 400) b.state = 'ready';
-          break;
-      }
-    }
+    const scoop = new Scoop(cfg, {
+      onScoop(fill) {
+        send({ t: 'scoop', fill: Math.round(fill * 1000) / 1000 });
+        splash(fill);
+        b.scoops++;
+      },
+      onSpill(fill) {
+        spill(fill);
+        toast('ช้าไป น้ำหกหมด!', true);
+      },
+    });
 
-    // Continuous texture for the current state (Joy-Con rumble → vibration pulses).
     let lastSlosh = 0;
     function texture(now, dt) {
       const wet = level > 0;
-      if (b.state === 'ready' && wet && b.motion > 250 && now - lastSlosh > 250) {
+      if (scoop.state === 'ready' && wet && b.motion > 250 && now - lastSlosh > 250) {
         lastSlosh = now; // water sloshing in the jug as you swing it
         vibe(15);
-      } else if (b.state === 'fill') {
+      } else if (scoop.state === 'fill') {
         if (wet) {
           if (r() < dt * 6) glug();
         } else if (r() < dt * 8) vibe(8); // dry scrape: nothing left to scoop
-      } else if (b.state === 'lift') {
-        vibe(Math.round(clamp(8 + 25 * b.fill, 8, 30))); // the weight of a full bucket (PWM)
+      } else if (scoop.state === 'lift') {
+        vibe(Math.round(clamp(8 + 25 * scoop.fill, 8, 30))); // the weight of a full bucket (PWM)
       }
     }
 
@@ -561,13 +529,13 @@
     function render(now) {
       const on = cfg.enabled && linked;
       const key = !linked ? 'ready' : !cfg.enabled ? 'off'
-        : b.state === 'ready' && level <= 0 ? 'dry' : b.state === 'fill' && level <= 0 ? 'fillDry' : b.state;
+        : scoop.state === 'ready' && level <= 0 ? 'dry' : scoop.state === 'fill' && level <= 0 ? 'fillDry' : scoop.state;
       $('say').textContent = linked ? SAY[key] : 'รอเชื่อมต่อคอมพิวเตอร์…';
-      $('bucket').className = `bucket ${on ? b.state : ''}`;
-      $('bucketWater').style.height = `${b.fill * 100}%`;
-      const lifting = on && b.state === 'lift';
+      $('bucket').className = `bucket ${on ? scoop.state : ''}`;
+      $('bucketWater').style.height = `${scoop.fill * 100}%`;
+      const lifting = on && scoop.state === 'lift';
       $('timer').style.visibility = lifting ? 'visible' : 'hidden';
-      if (lifting) $('timerFill').style.width = `${100 * (1 - clamp((now - b.since) / cfg.timeout, 0, 1))}%`;
+      if (lifting) $('timerFill').style.width = `${100 * (1 - clamp((now - scoop.since) / cfg.timeout, 0, 1))}%`;
       $('gMark').style.bottom = `${yPct(b.pitch)}%`;
       $('gDip').style.height = `${yPct(cfg.dip)}%`;
       $('gLift').style.height = `${100 - yPct(cfg.lift)}%`;
@@ -584,17 +552,16 @@
       // The computer sends the level at least every 2 s: much longer means the link is dead.
       if (linked && now - heard > 7000) conn?.close();
       if (cfg.enabled && linked) {
-        gesture(now, dt);
+        scoop.step(b.pitch, level, now, dt);
         texture(now, dt);
       }
       if (now - lastSt > 100) {
         lastSt = now;
-        send({ t: 'st', s: cfg.enabled ? b.state : 'off', f: Math.round(b.fill * 100) / 100, p: Math.round(b.pitch) });
+        send({ t: 'st', s: cfg.enabled ? scoop.state : 'off', f: Math.round(scoop.fill * 100) / 100, p: Math.round(b.pitch) });
       }
       render(now);
     }
 
-    // ---- start --------------------------------------------------------------------------------
     $('start').onclick = async () => {
       if (!(await askMotion())) {
         $('introNote').textContent = 'ไม่ได้รับสิทธิ์เซนเซอร์การเคลื่อนไหว iPhone: ตั้งค่า › แอป › Safari › เปิด "การเคลื่อนไหวและการวางแนว" แล้วโหลดหน้านี้ใหม่';

@@ -1,8 +1,3 @@
-// Toolbar popup: current level, the drain picker (one at a time: tilt cam, Joy-Con or phone), the tilt
-// cam (runs in a tab), Joy-Con pairing and status, the phone's QR and status (the controllers and the
-// phone link run in the offscreen document, offscreen/joycon.js and offscreen/phone.js), and the
-// "ขอลองโกงหน่อย" view: set the water to any % or drain it all.
-
 const $ = (id) => document.getElementById(id);
 const fill = document.querySelector('.fill'), pct = document.querySelector('.pct');
 
@@ -13,7 +8,7 @@ function show(target = 0) {
 chrome.storage.local.get({ target: 0 }, (s) => show(s.target));
 chrome.storage.onChanged.addListener((c) => c.target && show(c.target.newValue));
 
-// The camera lives in the page's content script (drains/camera.js): the popup closes as soon as it
+// The camera lives in the page's content script (content/tilt/camera.js): the popup closes as soon as it
 // loses focus, and the camera permission belongs to the site.
 async function cam(act) {
   try {
@@ -61,33 +56,47 @@ chrome.storage.local.get({ drainMode: null }, (s) => {
   showMode();
 });
 
+const ask = (type, act, extra) => chrome.runtime.sendMessage({ type, act, ...extra }).catch(() => null);
+
+function deviceCard(name, [cls, text], title = '') {
+  const line = (className, textContent) => Object.assign(document.createElement('div'), { className, textContent });
+  const card = line('pad', '');
+  card.title = title;
+  card.append(line('', name), line(`state ${cls}`, text));
+  return card;
+}
+
+// Strength slider + flip-direction checkbox. send(settings) on change; the returned load(settings) fills
+// them from the host's first status reply, then leaves them alone so a drag isn't undone mid-way.
+function settingsControls(gain, invert, send) {
+  gain.oninput = invert.onchange = () => send({ gain: +gain.value, invert: invert.checked });
+  let loaded = false;
+  return (s) => {
+    if (loaded) return;
+    gain.value = s.gain;
+    invert.checked = s.invert;
+    loaded = true;
+  };
+}
+
 const JOYCON_FILTERS = [0x2006, 0x2007, 0x2009].map((productId) => ({ vendorId: 0x057e, productId }));
 // The chooser only lists controllers that are connected right now; a paired Joy-Con drops off
 // Bluetooth when it sleeps and the PC can't wake it.
 const NOT_LISTED = 'ไม่เจอจอยคอน? ต้องเชื่อมบลูทูธไว้ก่อน กดปุ่มอะไรก็ได้บนจอยจนไฟหยุดกะพริบ แล้วลองใหม่';
 
-function padCard(p) {
-  const line = (cls, text) => Object.assign(document.createElement('div'), { className: cls, textContent: text });
-  const card = line('pad', '');
-  card.title = p.error ?? ''; // the technical reason, on hover
-  const [cls, text] = p.streaming ? ['ok', 'เชื่อมต่อแล้ว'] : p.error ? ['fail', 'เชื่อมต่อไม่สำเร็จ ลองใหม่'] : ['wait', 'กำลังเชื่อมต่อ…'];
-  card.append(line('', p.name), line(`state ${cls}`, text));
-  return card;
-}
+const padCard = (p) => deviceCard(p.name,
+  p.streaming ? ['ok', 'เชื่อมต่อแล้ว'] : p.error ? ['fail', 'เชื่อมต่อไม่สำเร็จ ลองใหม่'] : ['wait', 'กำลังเชื่อมต่อ…'],
+  p.error ?? ''); // the technical reason, on hover
 
-let settingsLoaded = false;
-async function joycon(act, extra = {}) {
-  const s = await chrome.runtime.sendMessage({ type: 'joycon', act, ...extra }).catch(() => null);
+const loadJoyconSettings = settingsControls($('gain'), $('invert'), (settings) => joycon('settings', { settings }));
+async function joycon(act, extra) {
+  const s = await ask('joycon', act, extra);
   if (!s) return; // offscreen document not up yet
   if (!s.hid) {
     $('pair').disabled = true;
     $('jcStatus').textContent = 'เบราว์เซอร์นี้ใช้จอยคอนไม่ได้ ใช้ Chrome, Edge หรือ Brave บนคอมพิวเตอร์';
   }
-  if (!settingsLoaded) {
-    $('gain').value = s.settings.gain;
-    $('invert').checked = s.settings.invert;
-    settingsLoaded = true;
-  }
+  loadJoyconSettings(s.settings);
   $('jcControls').hidden = !s.pads.length;
   $('pads').replaceChildren(...s.pads.map(padCard));
   if (s.pads.some((p) => p.streaming)) $('jcStatus').textContent = '';
@@ -102,28 +111,16 @@ $('pair').onclick = async () => {
     $('jcStatus').textContent = e.name === 'NotFoundError' ? NOT_LISTED : e.message;
   }
 };
-const sendSettings = () => joycon('settings', { settings: { gain: +$('gain').value, invert: $('invert').checked } });
-$('gain').oninput = sendSettings;
-$('invert').onchange = sendSettings;
 
-// ---- phone (offscreen/phone.js hosts the link; the phone opens phone/index.html#pair=<id>) ----
 // The phone page has to be on https (motion sensors need a secure context), so it can't come from
 // the extension itself: by default it's this repo's GitHub Pages site.
 const PHONE_URL = 'https://qwrtsdev.github.io/sht10-namkhunhaireeptak/phone/';
-let phoneQrFor = '', phoneSettingsLoaded = false, qrWanted = false;
+let phoneQrFor = '', qrWanted = false;
 
-function phoneCardFor(s) {
-  const line = (cls, text) => Object.assign(document.createElement('div'), { className: cls, textContent: text });
-  const card = line('pad', '');
-  const name = `📱 ${s.info?.name || 'มือถือ'}`;
-  const [cls, text] = s.live ? ['ok', 'เชื่อมต่อแล้ว'] : ['wait', 'สัญญาณหาย…'];
-  card.append(line('', name), line(`state ${cls}`, text));
-  return [card];
-}
-
-async function phone(act, extra = {}) {
-  const s = await chrome.runtime.sendMessage({ type: 'phone', act, ...extra }).catch(() => null);
-  if (!s?.id) return; // offscreen document not up yet
+const loadPhoneSettings = settingsControls($('phoneGain'), $('phoneInvert'), (settings) => phone('settings', { settings }));
+async function phone(act, extra) {
+  const s = await ask('phone', act, extra);
+  if (!s?.id) return;
   const url = `${PHONE_URL}#pair=${s.id}`;
   if (url !== phoneQrFor) {
     const q = qrcode(0, 'M');
@@ -133,15 +130,12 @@ async function phone(act, extra = {}) {
     $('phoneLink').href = $('phoneLink').textContent = url;
     phoneQrFor = url;
   }
-  if (!phoneSettingsLoaded) {
-    $('phoneGain').value = s.settings.gain;
-    $('phoneInvert').checked = s.settings.invert;
-    phoneSettingsLoaded = true;
-  }
+  loadPhoneSettings(s.settings);
   $('qrBox').hidden = s.live && !qrWanted;
   $('showQr').hidden = !$('qrBox').hidden;
   $('phoneControls').hidden = !s.connected;
-  $('phoneCard').replaceChildren(...(s.connected ? phoneCardFor(s) : []));
+  const card = deviceCard(`📱 ${s.info?.name || 'มือถือ'}`, s.live ? ['ok', 'เชื่อมต่อแล้ว'] : ['wait', 'สัญญาณหาย…']);
+  $('phoneCard').replaceChildren(...(s.connected ? [card] : []));
   $('phoneStatus').textContent = s.connected ? ''
     : !s.ready ? (s.error ? `กำลังต่อเซิร์ฟเวอร์ใหม่… (${s.error})` : 'กำลังเตรียมการเชื่อมต่อ…')
     : 'รอมือถือสแกน QR แล้วกด "เริ่มตักน้ำ" บนมือถือ';
@@ -151,10 +145,6 @@ $('showQr').onclick = () => {
   qrWanted = true;
   phone('status');
 };
-const sendPhoneSettings = () => phone('settings', { settings: { gain: +$('phoneGain').value, invert: $('phoneInvert').checked } });
-$('phoneGain').oninput = sendPhoneSettings;
-$('phoneInvert').onchange = sendPhoneSettings;
-
 
 chrome.runtime.sendMessage({ type: 'ensureSim' }).catch(() => {}).then(() => {
   joycon('status');

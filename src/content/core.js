@@ -1,15 +1,11 @@
-// Shared water state, the overlay canvas and the frame loop.
-// The level lives in chrome.storage so every tab floods together. The physics runs once, in the
-// extension's offscreen document (offscreen/sim.js): while this tab is visible it holds a port to it,
-// sends its tilt (drains/tilt.js) and gets the height field, which lands in `sim` scaled to this viewport.
-// Effects register with effects.push(fn); each fn(f) runs every frame in manifest order,
+// Effects: effects.push(fn); fn(f) runs every frame in manifest order,
 // with f = { ctx, t, dt, d, w, h } (t/dt seconds, d devicePixelRatio, w/h canvas size in device px).
 // water.level is the volume actually on screen (it trails water.target while rising or draining).
 
 const water = { level: 0, target: 0 };
 const effects = [];
 // Shared events: waterHooks.rise.push(fn(amount)) when the level goes up,
-// waterHooks.scoop.push(fn({ x, amount })) when a Joy-Con scoop starts (x = 0–1 across the screen).
+// waterHooks.scoop.push(fn({ x, amount })) when a scoop starts (x = 0–1 across the screen).
 const waterHooks = { rise: [], scoop: [] };
 
 const canvas = document.createElement('canvas');
@@ -45,7 +41,6 @@ function outlinedText({ ctx, d }, text, x, y, size, align = 'start', fill = 'rgb
   ctx.fillText(text, x, y);
 }
 
-// Copy a state from the shared sim, stretched from its SIM_W × SIM_H tank to this viewport.
 function applySim(s) {
   const n = s.h.length, ky = innerHeight / SIM_H;
   if (sim.n !== n) Object.assign(sim, { n, h: new Float32Array(n), q: new Float32Array(n + 1) });
@@ -63,7 +58,7 @@ async function simConnect() {
   if (simPort || simConnecting || document.hidden || !canvas.isConnected) return;
   simConnecting = true;
   try {
-    await chrome.runtime.sendMessage({ type: 'ensureSim' }); // background.js starts the sim if needed
+    await chrome.runtime.sendMessage({ type: 'ensureSim' });
     simPort = chrome.runtime.connect({ name: 'sim' });
   } catch {
     return; // the extension was reloaded: this copy of the script is orphaned
@@ -91,7 +86,7 @@ document.addEventListener('visibilitychange', () => (document.hidden ? simDiscon
 function applyWater(target) {
   water.target = target;
   if (target > 0 && !canvas.isConnected) {
-    simInit(water.level, innerWidth, innerHeight); // flat until the first state arrives
+    simInit(water.level, innerWidth, innerHeight);
     resize();
     addEventListener('resize', resize);
     document.body.append(canvas);
@@ -111,7 +106,6 @@ chrome.storage.onChanged.addListener((c) => {
   if (now > was + 1e-6) for (const fn of waterHooks.rise) fn(now - was);
 });
 
-// Raise the shared water level for a sent prompt of `chars` characters.
 function flood(chars, multiplier = 1) {
   const amount = chars * WATER_PER_CHAR * multiplier;
   chrome.storage.local.set({ target: Math.min(1, water.target + amount), speed: RISE_SPEED * multiplier });

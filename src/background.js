@@ -1,5 +1,4 @@
-// Service worker: the level badge on the toolbar icon, and the bridge to the shared water simulation, Joy-Cons
-// and phone (src/offscreen/). Offscreen documents only get chrome.runtime, so storage goes through here.
+// Offscreen documents only get chrome.runtime, so storage goes through here.
 
 function showLevel(target = 0) {
   const pct = Math.round(target * 100);
@@ -12,7 +11,7 @@ async function ensureSim() {
   const [doc] = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
   if (doc) return;
   creating ??= chrome.offscreen
-    .createDocument({ url: 'src/offscreen/sim.html', reasons: ['WORKERS', 'WEB_RTC'],
+    .createDocument({ url: 'src/offscreen/index.html', reasons: ['WORKERS', 'WEB_RTC'],
       justification: 'Runs one water simulation shared by every tab, and the WebRTC link to a phone used as a scoop.' })
     .catch(() => {}) // another call created it first
     .finally(() => (creating = null));
@@ -34,9 +33,9 @@ chrome.storage.onChanged.addListener((c) => {
 
 chrome.runtime.onMessage.addListener((m, _sender, reply) => {
   if (m.type === 'setTarget') chrome.storage.local.set({ target: m.target });
-  if (m.type === 'setStorage') chrome.storage.local.set(m.values); // a Joy-Con or phone scoop, the phone's id (offscreen/)
+  if (m.type === 'setStorage') chrome.storage.local.set(m.values);
   if (m.type === 'ensureSim') ensureSim().then(() => reply());
-  else if (m.type === 'simInit') chrome.storage.local.get(['target', 'speed', 'drainMode', 'phoneId'], reply);
+  else if (m.type === 'getStored') chrome.storage.local.get(['target', 'speed', 'drainMode', 'phoneId'], reply);
   else return;
   return true; // reply comes later
 });

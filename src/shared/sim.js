@@ -1,11 +1,5 @@
-// Water physics. The viewport is a 2D tank split into columns COL px wide, simulated with the
-// shallow-water equations on a staggered grid: depth h per column, flux q across column borders.
-// That gives travelling waves, sloshing, splashes from objects, and — when the screen is tilted —
-// a sloped surface with water pouring off the low edge.
-// Units: px and seconds.
-// Loaded in two places: the offscreen document (offscreen/sim.js) steps it in a fixed SIM_W × SIM_H
-// tank, once for all tabs; each tab gets the height field, scaled to its viewport (core.js), and
-// only uses the read helpers (surfaceAt, depthAt, slopeAt) to draw.
+// Shallow-water height field (px, seconds): depth h per column, flux q across column borders.
+// Stepped only in the offscreen document; tabs just read it (surfaceAt, depthAt, slopeAt).
 
 const sim = {
   n: 0, dx: COL, W: 0, H: 0,
@@ -61,13 +55,13 @@ function simRemove(frac, weight = () => 1) {
 }
 
 function simCol(x) {
-  return Math.max(0, Math.min(sim.n - 1, Math.floor(x / sim.dx)));
+  return clamp(Math.floor(x / sim.dx), 0, sim.n - 1);
 }
 
 // Surface height (CSS px from the top) at x, linearly interpolated between column centres.
 function surfaceAt(x) {
   if (!sim.h) return innerHeight;
-  const c = Math.max(0, Math.min(sim.n - 1.001, x / sim.dx - 0.5));
+  const c = clamp(x / sim.dx - 0.5, 0, sim.n - 1.001);
   const i = Math.floor(c), k = c - i;
   return sim.H - (sim.h[i] * (1 - k) + sim.h[Math.min(sim.n - 1, i + 1)] * k);
 }
@@ -93,7 +87,6 @@ function splash(x, strength, spread = 5) {
   }
 }
 
-// How fast water pours off the low edge (px²/s) when tilted past TILT_LIP.
 function spillFlux(depth, gy) {
   const t = Math.abs(sim.tilt);
   if (t < TILT_LIP || depth <= 0) return 0;
@@ -120,7 +113,6 @@ function simStep(dt, open) {
     for (let i = 1; i < n; i++) {
       const d = (h[i - 1] + h[i]) / 2;
       if (d <= 0) { q[i] = 0; continue; }
-      // Surface-height difference pushes water downhill; the tilt adds a sideways pull.
       q[i] = (q[i] + s * d * ((gy * (h[i - 1] - h[i])) / dx + gx)) * damp;
     }
     // A little viscosity: smooths grid-sized jitter while long waves keep sloshing.

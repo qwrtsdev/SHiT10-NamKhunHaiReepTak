@@ -1,20 +1,9 @@
-// Joy-Con scooper: one controller over WebHID. Turns a dip-and-flip motion into a scoop that lowers
-// the shared water level, and plays HD-rumble haptics so it feels like hauling water.
 // Protocol notes (report layouts, subcommands, rumble encoding) follow the Joy-Con tester guide:
 // offsets are WebHID data indices (report ID excluded).
 
-const SCOOP_MIN = 0.05, SCOOP_MAX = 0.1; // each scoop takes a random 5–10% of the screen
-const DIP_DEG = -35; // tip pointing this far down = bucket in the water
-const LIFT_DEG = 30; // tip this far up = scooped
-const LIFT_TIMEOUT = 1500; // ms; slower than this and the water spills back
 const ACC = 4 / 16384, GYR = 936 / 13371; // raw → G, raw → °/s (default calibration)
 const NAMES = { 0x2006: 'Joy-Con (L)', 0x2007: 'Joy-Con (R)', 0x2009: 'Pro Controller' };
 
-// Runs in the offscreen document (src/offscreen/joycon.js hosts it), so the connection survives the
-// popup closing. The host provides joyconSettings { gain, invert }, waterLevel() and scoopWater(amount).
-
-// ---- HD rumble ----------------------------------------------------------------------------
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function encAmp(a) {
   a = clamp(a, 0, 1);
   if (a > 0.23) return Math.round(Math.log2(a * 8.7) * 32);
@@ -31,7 +20,6 @@ function encodeDual(hf, ha, lf, la) {
 const NEUTRAL = [0x00, 0x01, 0x40, 0x40];
 const NEUTRAL_KEY = NEUTRAL.join();
 
-// ---- one controller -----------------------------------------------------------------------
 class JoyCon {
   constructor(device) {
     this.device = device;
@@ -46,11 +34,17 @@ class JoyCon {
     this.biasSamples = [];
     this.pitch = 0;
     this.battery = '';
-    // scoop state machine: ready → fill → lift → cool → ready
-    this.state = 'ready';
-    this.fill = 0;
-    this.since = 0;
-    this.scoops = 0;
+    this.scoop = new Scoop(SCOOP_LIMITS, {
+      onScoop: (fill) => {
+        const got = scoopWater(SCOOP_MIN + Math.random() * (SCOOP_MAX - SCOOP_MIN));
+        this.splash(got > 0 ? fill : 0.15);
+      },
+      onSpill: (fill) => {
+        const now = performance.now();
+        this.hit('l', 80, 0.6 * fill, 400);
+        for (let i = 0; i < 8; i++) this.hit('h', 500 + Math.random() * 500, 0.2, 25, now + i * 50);
+      },
+    });
     this.impacts = []; // one-shot haptic hits: { band, f, a, t0, dur }
     this.last = 0;
     this.error = null;
@@ -127,8 +121,11 @@ class JoyCon {
     const dt = this.last ? Math.min(0.1, (now - this.last) / 1000) : 0.015;
     this.last = now;
     // Not the chosen drain (popup): stay connected, but ignore motion and keep quiet.
-    if (joyconSettings.enabled) this.gesture(now, dt);
-    else Object.assign(this, { state: 'ready', fill: 0, impacts: [] });
+    if (joyconSettings.enabled) this.scoop.step(this.pitch, waterLevel(), now, dt);
+    else {
+      this.scoop.reset();
+      this.impacts = [];
+    }
     this.rumble(now, dt);
   }
 
@@ -140,43 +137,6 @@ class JoyCon {
     const avg = [0, 1, 2].map((i) => this.biasSamples.reduce((s, v) => s + v[i], 0) / 160);
     const still = this.biasSamples.every((v) => v.every((x, i) => Math.abs(x - avg[i]) < 10));
     if (still) { this.bias = avg; this.biasSamples = null; } else this.biasSamples = [];
-  }
-
-  gesture(now, dt) {
-    const p = this.pitch;
-    switch (this.state) {
-      case 'ready':
-        if (p < DIP_DEG) { this.state = 'fill'; this.fill = 0; }
-        break;
-      case 'fill': { // bucket under water: fills faster when the water is deep
-        const level = waterLevel();
-        if (level > 0) this.fill = Math.min(1, this.fill + dt * 1.4 * clamp(level / 0.15, 0.25, 1));
-        if (p > -10) {
-          if (this.fill > 0.1) { this.state = 'lift'; this.since = now; } else this.state = 'ready';
-        }
-        break;
-      }
-      case 'lift':
-        if (p > LIFT_DEG) {
-          const got = scoopWater(SCOOP_MIN + Math.random() * (SCOOP_MAX - SCOOP_MIN));
-          if (got > 0) this.scoops++;
-          this.splash(got > 0 ? this.fill : 0.15);
-          this.state = 'cool';
-          this.since = now;
-          this.fill = 0;
-        } else if (p < DIP_DEG) {
-          this.state = 'fill'; // dipped back in: keep what's in the bucket
-        } else if (now - this.since > LIFT_TIMEOUT) {
-          this.hit('l', 80, 0.6 * this.fill, 400); // spilled it all back
-          for (let i = 0; i < 8; i++) this.hit('h', 500 + Math.random() * 500, 0.2, 25, now + i * 50);
-          this.state = 'ready';
-          this.fill = 0;
-        }
-        break;
-      case 'cool':
-        if (now - this.since > 400) this.state = 'ready';
-        break;
-    }
   }
 
   // One-shot haptic hit, decaying over `ms` (optionally starting later, at time `at`).
@@ -196,24 +156,24 @@ class JoyCon {
   rumble(now, dt) {
     const r = Math.random;
     let hf = 220, ha = 0, lf = 120, la = 0;
-    const level = waterLevel(), wet = level > 0;
-    if (this.state === 'ready' && wet) {
+    const level = waterLevel(), wet = level > 0, { state, fill } = this.scoop;
+    if (state === 'ready' && wet) {
       // water sloshing in the jug as you move it
       la = clamp(this.motion / 700, 0, 1) * 0.35 * (0.3 + 0.7 * level);
       lf = 110 + 40 * Math.sin(now / 140);
       ha = la * 0.3;
-    } else if (this.state === 'fill') {
+    } else if (state === 'fill') {
       if (wet) {
-        la = (0.15 + 0.45 * this.fill) * (0.7 + 0.3 * Math.sin(now / 33));
+        la = (0.15 + 0.45 * fill) * (0.7 + 0.3 * Math.sin(now / 33));
         lf = 70 + 25 * r();
-        if (r() < dt * 6) this.hit('l', 90 + r() * 40, 0.4 + 0.4 * this.fill, 70); // glug
-        if (r() < dt * 14) this.hit('h', 380 + r() * 500, 0.18 + 0.15 * this.fill, 25); // bubbles
+        if (r() < dt * 6) this.hit('l', 90 + r() * 40, 0.4 + 0.4 * fill, 70); // glug
+        if (r() < dt * 14) this.hit('h', 380 + r() * 500, 0.18 + 0.15 * fill, 25); // bubbles
       } else {
         hf = 200; ha = 0.08; // dry scrape: nothing left to scoop
       }
-    } else if (this.state === 'lift') {
+    } else if (state === 'lift') {
       // the weight of a full bucket, dripping
-      la = 0.25 + 0.5 * this.fill;
+      la = 0.25 + 0.5 * fill;
       lf = 50 + 10 * Math.sin(now / 50);
       if (r() < dt * 10) this.hit('h', 600 + r() * 500, 0.15, 20);
     }

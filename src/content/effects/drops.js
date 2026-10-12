@@ -1,5 +1,4 @@
-// Spray droplets and bubbles. spray() / bubble() can be called from any effect.
-// Droplets fly under (tilted) gravity and vanish back into the water; bubbles rise to the surface.
+// spray() / bubble() can be called from any effect.
 
 const drops = [];
 
@@ -23,7 +22,6 @@ effects.push((f) => {
   const { ctx, d, dt } = f;
   const gx = GRAVITY * Math.sin(sim.tilt), gy = GRAVITY * Math.cos(sim.tilt);
 
-  // Water pouring off a tilted edge: throw droplets outward from the low corner.
   for (const side of [0, 1]) {
     const p = sim.pour[side];
     if (p <= 0) continue;
@@ -38,7 +36,7 @@ effects.push((f) => {
     const p = drops[i];
     p.air += dt;
     if (p.bubble) {
-      p.x += Math.sin((p.air + p.r) * 9) * 20 * dt; // wobble
+      p.x += Math.sin((p.air + p.r) * 9) * 20 * dt;
       p.y += p.vy * dt;
       if (p.y <= surfaceAt(p.x) + p.r || p.air > 6) { drops.splice(i, 1); continue; }
       ctx.strokeStyle = 'rgba(255,255,255,0.7)';

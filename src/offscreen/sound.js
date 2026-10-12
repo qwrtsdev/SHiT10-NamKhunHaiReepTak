@@ -1,7 +1,4 @@
-// Scoop sounds, played by the computer. Runs in the offscreen document, so it doesn't need a visible
-// tab or a click on the page. Splash for every Joy-Con / phone scoop (offscreen/joycon.js scoopWater);
-// for the phone also glugs, bubbles, drips and the spill, driven by the state it streams
-// (offscreen/phone.js). Ported from phone/index.html, which now only vibrates.
+// Played here, not in the tabs: once for the whole browser, no page click needed, never muffled.
 
 const SOUND_VOLUME = 0.6;
 let ac = null, noiseBuf = null;
@@ -63,9 +60,7 @@ const sfx = {
   },
 };
 
-// Level sounds: alarm.mp3 loops while the screen is full (same 99.5% as effects/lockout.js), yay.mp3
-// plays once when the last water leaves. Played here rather than in the tabs, so they sound once for the
-// whole browser and the page muffling (effects/muffle.js) never touches them.
+// alarm loops while the screen is full (99.5%, as in lockout.js); yay plays once when it drains.
 const alarm = Object.assign(new Audio('../../assets/alarm.mp3'), { loop: true, volume: SOUND_VOLUME });
 const yay = Object.assign(new Audio('../../assets/yay.mp3'), { volume: SOUND_VOLUME });
 let wasFull = false, wasWet = false;

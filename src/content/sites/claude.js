@@ -1,4 +1,3 @@
-// claude.ai
 if (location.hostname === 'claude.ai') {
   chatSite({
     rates: RATES.claude,

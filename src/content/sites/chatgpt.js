@@ -1,6 +1,5 @@
-// chatgpt.com (React). Selectors from the 2026-10 DOM; the model switcher isn't documented there,
-// so the badge tries the usual candidates. The submit button turns into a stop button while a reply
-// streams (data-testid="stop-button"), which is not counted.
+// The model switcher has no documented selector, so try the usual candidates. While a reply streams,
+// the submit button becomes data-testid="stop-button", which must not count.
 if (location.hostname === 'chatgpt.com' || location.hostname === 'chat.openai.com') {
   chatSite({
     rates: RATES.chatgpt,

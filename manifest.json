@@ -1,14 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "NamKhunHaiReepTak",
-  "version": "2.0",
+  "name": "น้ำขึ้นให้รีบตัก",
+  "version": "1.0",
   "description": "Every prompts you send uses water! and the data centers caused global warming.",
   "permissions": [
     "storage",
     "offscreen"
   ],
   "action": {
-    "default_title": "NamKhunHaiReepTak",
+    "default_title": "น้ำขึ้นให้รีบตัก",
     "default_popup": "src/popup/popup.html"
   },
   "background": {
@@ -20,24 +20,24 @@
         "<all_urls>"
       ],
       "js": [
-        "src/config.js",
-        "src/core.js",
-        "src/sim.js",
-        "src/drains/camera.js",
-        "src/drains/tilt.js",
-        "src/effects/waves.js",
-        "src/effects/drops.js",
-        "src/effects/scoop.js",
-        "src/effects/percent.js",
-        "src/effects/lockout.js",
-        "src/effects/drained.js",
-        "src/effects/alerts.js",
-        "src/effects/muffle.js",
-        "src/chat.js",
-        "src/systems/claude.js",
-        "src/systems/chatgpt.js",
-        "src/systems/gemini.js",
-        "src/systems/others.js"
+        "src/shared/config.js",
+        "src/content/core.js",
+        "src/shared/sim.js",
+        "src/content/tilt/camera.js",
+        "src/content/tilt/tilt.js",
+        "src/content/effects/waves.js",
+        "src/content/effects/drops.js",
+        "src/content/effects/scoop.js",
+        "src/content/effects/percent.js",
+        "src/content/effects/lockout.js",
+        "src/content/effects/drained.js",
+        "src/content/effects/alerts.js",
+        "src/content/effects/muffle.js",
+        "src/content/chat.js",
+        "src/content/sites/claude.js",
+        "src/content/sites/chatgpt.js",
+        "src/content/sites/gemini.js",
+        "src/content/sites/others.js"
       ],
       "run_at": "document_idle"
     }

@@ -1,18 +1,16 @@
-// Hosts the phone scooper in the offscreen document, next to the Joy-Cons. The phone opens
-// phone/index.html#pair=<id> (QR in the popup) and connects over WebRTC (PeerJS, src/vendor/).
-// The phone runs the dip-and-flip gesture itself (its sensors, its vibration, no network lag)
-// with the thresholds we send, and asks us to take the water out: { t: 'scoop', fill }.
-// The popup polls { type: 'phone', act: 'status' } to show the QR, the phone and its bucket.
-//
+// The phone runs the gesture itself (no network lag) and sends { t: 'scoop', fill } to take water out.
 // Laptop → phone: cfg { dip, lift, timeout, gain, invert, enabled } · lv { v, en } (level, ~4/s) · got { amount, v }
 // Phone → laptop: hi { name, ios, vib } · st { s, f, p } (state, fill 0–1, pitch °, ~10/s) · scoop { fill }
 
-// enabled: the phone is the drain chosen in the popup (storage drainMode, relayed by background.js).
-const phoneSettings = { gain: 0.8, invert: false, enabled: false };
+// Picking the phone registers with the PeerJS server.
+const phoneSettings = drainSettings('phone', ({ enabled }) => {
+  if (enabled) phoneStart();
+  phoneCfg();
+});
 const phone = { id: null, peer: null, conn: null, ready: false, error: null, info: null, st: null, seen: 0, scoops: 0, sentLv: '' };
 
 const phoneSend = (m) => phone.conn?.open && phone.conn.send(m);
-const phoneCfg = () => phoneSend({ t: 'cfg', dip: DIP_DEG, lift: LIFT_DEG, timeout: LIFT_TIMEOUT, ...phoneSettings });
+const phoneCfg = () => phoneSend({ t: 'cfg', ...SCOOP_LIMITS, ...phoneSettings });
 
 // Registers our id with the PeerJS server so the phone can find us. Started the first time the
 // phone drain is chosen, then kept, so a connected phone survives switching drains back and forth.
@@ -57,15 +55,13 @@ function phoneData(m) {
     if (phoneSettings.enabled) phoneSound(was, phone.st);
   }
   if (m.t === 'scoop' && phoneSettings.enabled) {
-    const got = scoopWater(clamp(+m.fill || 0, 0, 1) * SCOOP_MAX); // offscreen/joycon.js
+    const got = scoopWater(clamp(+m.fill || 0, 0, 1) * SCOOP_MAX);
     if (got > 0) phone.scoops++;
     phoneSend({ t: 'got', amount: got, v: waterLevel() });
   }
 }
 
-// The phone's scoop sounds play here (offscreen/sound.js), from its ~10/s state updates: glugs and
-// bubbles while filling, drips while lifting, a spill when the lift times out. The splash comes with
-// the scoop itself (scoopWater).
+// Phone scoop sounds from its ~10/s st updates; the splash comes with scoopWater().
 function phoneSound(was, st) {
   const wet = waterLevel() > 0;
   if (st.state === 'fill' && wet) {
@@ -92,22 +88,16 @@ setInterval(() => {
   phoneSend({ t: 'lv', v: waterLevel(), en: phoneSettings.enabled });
 }, 250);
 
-chrome.runtime.sendMessage({ type: 'simInit' }).then((s) => {
+stored.then((s) => {
   phone.id = s?.phoneId;
   if (!phone.id) {
     phone.id = `namkhun-${crypto.randomUUID().slice(0, 13)}`;
     chrome.runtime.sendMessage({ type: 'setStorage', values: { phoneId: phone.id } }).catch(() => {});
   }
-  phoneSettings.enabled = s?.drainMode === 'phone';
-  if (phoneSettings.enabled) phoneStart();
+  if (phoneSettings.enabled) phoneStart(); // drainSettings() picked it before the id was known
 });
 
 chrome.runtime.onMessage.addListener((m, _sender, reply) => {
-  if (m.type === 'storage' && m.drainMode !== undefined) {
-    phoneSettings.enabled = m.drainMode === 'phone';
-    if (phoneSettings.enabled) phoneStart();
-    phoneCfg();
-  }
   if (m.type !== 'phone') return;
   if (m.act === 'settings') {
     Object.assign(phoneSettings, m.settings);

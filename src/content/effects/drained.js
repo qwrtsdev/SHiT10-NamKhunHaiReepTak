@@ -1,5 +1,3 @@
-// "น้ำหมดแล้วทำงานต่อได้" in rainbow for 5 s when the water on screen runs out.
-
 const DRAINED_TIME = 5; // seconds
 let wasWet = false, drainedAt = -Infinity;
 
@@ -13,9 +11,9 @@ effects.push((f) => {
   ctx.font = `bold ${size * d}px system-ui, sans-serif`;
   const half = ctx.measureText(text).width / 2;
   const rainbow = ctx.createLinearGradient(f.w / 2 - half, 0, f.w / 2 + half, 0);
-  for (let i = 0; i <= 6; i++) rainbow.addColorStop(i / 6, `hsl(${i * 60 + k * 360}, 90%, 50%)`); // hues roll along
+  for (let i = 0; i <= 6; i++) rainbow.addColorStop(i / 6, `hsl(${i * 60 + k * 360}, 90%, 50%)`);
   ctx.save();
-  ctx.globalAlpha = Math.min(1, (DRAINED_TIME - k) / 0.4); // fade out over the last 0.4 s
+  ctx.globalAlpha = Math.min(1, (DRAINED_TIME - k) / 0.4);
   outlinedText(f, text, f.w / 2, f.h / 2, size, 'center', rainbow);
   ctx.restore();
 });

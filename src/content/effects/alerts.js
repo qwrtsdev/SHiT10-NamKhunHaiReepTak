@@ -1,5 +1,4 @@
-// A message box when the water rises past a level: muffling starts, then the chat box locks.
-// alertsShown lives in storage so only the tab you're looking at shows it once, not every tab you
+// alertsShown lives in storage so only the tab you're looking at shows it, not every tab you
 // switch to afterwards. It re-arms when the shared level drops back below.
 
 const ALERTS = [

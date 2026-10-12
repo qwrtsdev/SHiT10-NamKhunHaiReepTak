@@ -1,9 +1,5 @@
-// Tilting the screen pours the water out of the low edge. Tilt comes from (added together):
-//  - the webcam (drains/camera.js), an estimate from the angle of straight edges it sees,
-//  - the device's motion sensor, on tablets / 2-in-1s / Chromebooks that have one.
-// The focused tab sends the sum (radians, + = right edge down) to the shared sim (offscreen/sim.js);
-// other tabs stay quiet, so only the tab you're looking at tilts and pours. The tab running the tilt
-// cam always sends: its controls are in the toolbar popup, which takes the page's focus while open.
+// Tilt = webcam estimate + device motion sensor (tablets, 2-in-1s). Only the focused tab sends it, so
+// only that tab pours. The tilt-cam tab always sends: the popup takes the page's focus while open.
 
 const tiltIn = { sensor: 0, sensorAt: 0 };
 
@@ -20,14 +16,13 @@ addEventListener('devicemotion', (e) => {
   tiltIn.sensorAt = performance.now();
 });
 
-
 let sentTilt = NaN, tiltPort = null, camWasOn = false;
 effects.push(() => {
   const camStopped = camWasOn && !cam.on; // send the swing back to level once
   camWasOn = cam.on;
   if (!simPort || !(cam.on || camStopped || document.hasFocus())) return;
   const sensor = performance.now() - tiltIn.sensorAt < 1000 ? tiltIn.sensor : 0;
-  const t = Math.max(-MAX_TILT, Math.min(MAX_TILT, sensor + (cam.on ? (cam.angle * Math.PI) / 180 : 0)));
+  const t = clamp(sensor + (cam.on ? (cam.angle * Math.PI) / 180 : 0), -MAX_TILT, MAX_TILT);
   if (simPort === tiltPort && Math.abs(t - sentTilt) < 1e-3) return; // a new port always gets one
   sentTilt = t;
   tiltPort = simPort;
@@ -35,6 +30,6 @@ effects.push(() => {
 });
 addEventListener('blur', () => {
   if (cam.on) return;
-  sentTilt = NaN; // resend on focus
+  sentTilt = NaN;
   simPort?.postMessage({ tilt: 0 });
 });

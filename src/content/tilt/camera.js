@@ -1,4 +1,3 @@
-// Webcam as a tilt sensor. Started from the toolbar popup, which messages the active tab (see the end).
 // Each frame (~10/s) is shrunk to 160×120 grayscale; Sobel gradients of strong edges vote into a
 // 36-bin × 5° orientation histogram. Room edges are mostly horizontal + vertical, so bins 90° apart
 // are folded together, the strongest orientation is refined with a weighted circular mean, and the
@@ -85,7 +84,7 @@ function camAnalyze() {
       const gx = g[i - CAM_W + 1] + 2 * g[i + 1] + g[i + CAM_W + 1] - g[i - CAM_W - 1] - 2 * g[i - 1] - g[i + CAM_W - 1];
       const gy = g[i + CAM_W - 1] + 2 * g[i + CAM_W] + g[i + CAM_W + 1] - g[i - CAM_W - 1] - 2 * g[i - CAM_W] - g[i - CAM_W + 1];
       const m = Math.hypot(gx, gy);
-      if (m < 80) continue; // weak gradient: ignore
+      if (m < 80) continue;
       const a = (((Math.atan2(gy, gx) * 180) / Math.PI) % 180 + 180) % 180; // undirected, 0–180
       hist[Math.min(35, Math.floor(a / 5))] += m;
       angs.push(a % 90);
@@ -123,13 +122,13 @@ function camAnalyze() {
   // image (y down = positive angle): same sign as our tilt.
   const rel = wrap90(cam.raw - cam.ref);
   const smooth = 0.7 * cam.angle + 0.3 * rel;
-  cam.angle = Math.max(-CAM_MAX_ANGLE, Math.min(CAM_MAX_ANGLE, smooth));
+  cam.angle = clamp(smooth, -CAM_MAX_ANGLE, CAM_MAX_ANGLE);
   cam.status = `เอียง ${Math.round(cam.angle)}°`;
 }
 
 addEventListener('pagehide', camStop);
 
-// The popup's 📷 controls. It polls { act: 'status' } while open; frame is the last analysed frame.
+// The popup polls { act: 'status' } while open; frame is the last analysed frame.
 chrome.runtime.onMessage.addListener((m, _sender, reply) => {
   if (m.type !== 'cam') return;
   if (m.act === 'start') camStart();

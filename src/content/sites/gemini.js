@@ -1,5 +1,5 @@
-// gemini.google.com (Angular). Custom element tags are the stable hooks; class names like ng-tns-…
-// and aria-labels (localized) are avoided. The send button gets a "stop" class while a reply streams.
+// Custom element tags are the stable hooks; ng-tns-… classes and localized aria-labels are avoided.
+// The send button gets a "stop" class while a reply streams.
 if (location.hostname === 'gemini.google.com') {
   // The thinking level only shows inside the mode menu, so remember the one last picked there.
   // Until then assume the lowest, Gemini's default.

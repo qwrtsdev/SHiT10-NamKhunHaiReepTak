@@ -1,6 +1,3 @@
-// Draws the simulated water (sim.js): a lighter back layer, a front body that darkens with depth,
-// a highlight along the surface, small wind ripples on top, and a blur of the page behind it.
-
 let waterBlurLayer;
 
 // Small ambient ripples layered on the simulated surface (visual only, no mass).
@@ -39,7 +36,6 @@ effects.push((f) => {
     highest = Math.min(highest, s);
   }
 
-  // Blur the page under the surface, stronger with depth and with how full the screen is.
   const points = [];
   for (let i = 0; i <= 64; i++) {
     const x = (sim.W * i) / 64;
