@@ -1,6 +1,6 @@
 // Hosts the phone scooper in the offscreen document, next to the Joy-Cons. The phone opens
 // phone/index.html#pair=<id> (QR in the popup) and connects over WebRTC (PeerJS, src/vendor/).
-// The phone runs the dip-and-flip gesture itself (its sensors, its vibration/sound, no network lag)
+// The phone runs the dip-and-flip gesture itself (its sensors, its vibration, no network lag)
 // with the thresholds we send, and asks us to take the water out: { t: 'scoop', fill }.
 // The popup polls { type: 'phone', act: 'status' } to show the QR, the phone and its bucket.
 //
@@ -47,12 +47,36 @@ function phoneStart() {
 
 function phoneData(m) {
   phone.seen = Date.now();
-  if (m.t === 'hi') phone.info = { name: String(m.name ?? '').slice(0, 40), ios: !!m.ios, vib: !!m.vib };
-  if (m.t === 'st') phone.st = { state: String(m.s), fill: clamp(+m.f || 0, 0, 1), pitch: +m.p || 0 };
+  if (m.t === 'hi') {
+    phone.info = { name: String(m.name ?? '').slice(0, 40), ios: !!m.ios, vib: !!m.vib };
+    sfx.hello();
+  }
+  if (m.t === 'st') {
+    const was = phone.st;
+    phone.st = { state: String(m.s), fill: clamp(+m.f || 0, 0, 1), pitch: +m.p || 0 };
+    if (phoneSettings.enabled) phoneSound(was, phone.st);
+  }
   if (m.t === 'scoop' && phoneSettings.enabled) {
     const got = scoopWater(clamp(+m.fill || 0, 0, 1) * SCOOP_MAX); // offscreen/joycon.js
     if (got > 0) phone.scoops++;
     phoneSend({ t: 'got', amount: got, v: waterLevel() });
+  }
+}
+
+// The phone's scoop sounds play here (offscreen/sound.js), from its ~10/s state updates: glugs and
+// bubbles while filling, drips while lifting, a spill when the lift times out. The splash comes with
+// the scoop itself (scoopWater).
+function phoneSound(was, st) {
+  const wet = waterLevel() > 0;
+  if (st.state === 'fill' && wet) {
+    if (r() < 0.6) sfx.glug(r() * 0.1);
+    for (let i = 0; i < 2; i++) if (r() < 0.7) sfx.bubble(r() * 0.1);
+  } else if (st.state === 'fill') {
+    if (r() < 0.8) sfx.scrape();
+  } else if (st.state === 'lift') {
+    sfx.drip(r() * 0.1);
+  } else if (st.state === 'ready' && was?.state === 'lift') {
+    sfx.spill(was.fill); // too slow: lift → ready without the scoop's cool state
   }
 }
 

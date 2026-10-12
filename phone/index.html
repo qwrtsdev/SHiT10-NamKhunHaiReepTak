@@ -11,8 +11,8 @@
     …/phone/#pair=<id>; must be served over https (motion sensors need a secure context), e.g. GitHub Pages.
     Connects to the extension's offscreen document (src/offscreen/phone.js) over WebRTC (PeerJS) and runs
     the same dip-and-flip scoop as the Joy-Con (src/joycon/joycon.js): point the top of the phone down to
-    fill the bucket, flip it up to throw the water out. Feedback: vibration (Android), sound (all phones,
-    iPhone can't vibrate from a web page), and the bucket on screen.
+    fill the bucket, flip it up to throw the water out. Feedback: vibration (Android) and the bucket on
+    screen. The sounds play on the computer (src/offscreen/sound.js), not here.
   -->
   <style>
     :root {
@@ -345,7 +345,6 @@
       </div>
       <p></p>
       <div class="tools">
-        <button class="ghost" id="sound">🔊 เสียงเปิด</button>
         <span class="muted" id="feel"></span>
       </div>
     </section>
@@ -364,7 +363,7 @@
 
     // Thresholds come from the extension (cfg), so the phone scoops exactly like the Joy-Con.
     const cfg = { dip: -35, lift: 30, timeout: 1500, gain: 0.8, invert: false, enabled: false };
-    let level = 0, sound = true, started = false;
+    let level = 0, started = false;
     // scoop state machine (mirrors JoyCon.gesture in src/joycon/joycon.js): ready → fill → lift → cool → ready
     const b = { state: 'ready', fill: 0, since: 0, scoops: 0, pitch: 0, raw: null, motion: 0 };
 
@@ -481,80 +480,14 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'visible' || !started) return;
       keepAwake();
-      ac?.resume();
       if (!linked) connect();
     });
 
-    // ---- sound (iPhone's only feedback: Safari has no Vibration API) -------------------------
-    let ac = null, master = null, noiseBuf = null;
-    function audioInit() {
-      if (ac) return ac.resume();
-      try {
-        if (navigator.audioSession) navigator.audioSession.type = 'playback'; // play even with the silent switch on
-      } catch {}
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      ac = new AC();
-      master = ac.createGain();
-      master.connect(ac.destination);
-      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
-      const d = noiseBuf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = r() * 2 - 1;
-      const s = ac.createBufferSource(); // unlock: iOS only plays after a sound started inside a tap
-      s.buffer = ac.createBuffer(1, 1, 22050);
-      s.connect(ac.destination);
-      s.start();
-    }
-    const loud = (v) => (sound && ac ? v * cfg.gain : 0);
-
-    function env(g, t, v, dur) {
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(v, t + 0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    }
-    function tone(f0, f1, dur, v, at = 0) {
-      v = loud(v);
-      if (v < 0.001) return;
-      const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
-      o.frequency.setValueAtTime(f0, t);
-      o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-      env(g, t, v, dur);
-      o.connect(g).connect(master);
-      o.start(t);
-      o.stop(t + dur + 0.02);
-    }
-    function noise(dur, v, type, freq, at = 0) {
-      v = loud(v);
-      if (v < 0.001) return;
-      const t = ac.currentTime + at, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-      s.buffer = noiseBuf;
-      f.type = type;
-      f.frequency.value = freq;
-      env(g, t, v, dur);
-      s.connect(f).connect(g).connect(master);
-      s.start(t, r() * 0.5);
-      s.stop(t + dur + 0.02);
-    }
     const vibe = (p) => VIB && cfg.gain > 0 && navigator.vibrate(Array.isArray(p) ? p.map((x, i) => (i % 2 ? x : Math.round(x * cfg.gain))) : Math.round(p * cfg.gain));
 
-    const bubble = () => tone(400 + r() * 500, 900 + r() * 700, 0.05, 0.12); // rising blip
-    const drip = (at = 0) => tone(900 + r() * 700, 1800 + r() * 900, 0.04, 0.1, at);
-    function glug() {
-      tone(140 + r() * 60, 320 + r() * 80, 0.12, 0.35);
-      noise(0.1, 0.08, 'lowpass', 400);
-      vibe(30 + 40 * b.fill);
-    }
-    function splash(size) {
-      noise(0.35, 0.4 + 0.4 * size, 'bandpass', 1100);
-      noise(0.25, 0.3, 'lowpass', 500);
-      for (let i = 0; i < 6 + 10 * size; i++) drip(0.08 + r() * 0.52);
-      vibe([60 + 80 * size, 40, 25, 60, 15, 80, 10]);
-    }
-    function spill(fill) {
-      noise(0.6, 0.2 + 0.3 * fill, 'lowpass', 700);
-      for (let i = 0; i < 8; i++) drip(i * 0.05);
-      vibe(Math.round(150 + 250 * fill));
-    }
+    const glug = () => vibe(30 + 40 * b.fill);
+    const splash = (size) => vibe([60 + 80 * size, 40, 25, 60, 15, 80, 10]);
+    const spill = (fill) => vibe(Math.round(150 + 250 * fill));
 
     // ---- the scoop ----------------------------------------------------------------------------
     let toastTimer = 0;
@@ -598,25 +531,19 @@
       }
     }
 
-    // Continuous texture for the current state (Joy-Con rumble → sound + vibration pulses).
+    // Continuous texture for the current state (Joy-Con rumble → vibration pulses).
     let lastSlosh = 0;
     function texture(now, dt) {
       const wet = level > 0;
       if (b.state === 'ready' && wet && b.motion > 250 && now - lastSlosh > 250) {
         lastSlosh = now; // water sloshing in the jug as you swing it
-        noise(0.2, 0.12 * (0.3 + 0.7 * level), 'lowpass', 450);
         vibe(15);
       } else if (b.state === 'fill') {
         if (wet) {
           if (r() < dt * 6) glug();
-          if (r() < dt * 14) bubble();
-        } else if (r() < dt * 8) { // dry scrape: nothing left to scoop
-          noise(0.05, 0.1, 'highpass', 2500);
-          vibe(8);
-        }
+        } else if (r() < dt * 8) vibe(8); // dry scrape: nothing left to scoop
       } else if (b.state === 'lift') {
         vibe(Math.round(clamp(8 + 25 * b.fill, 8, 30))); // the weight of a full bucket (PWM)
-        if (r() < dt * 10) drip();
       }
     }
 
@@ -668,14 +595,7 @@
     }
 
     // ---- start --------------------------------------------------------------------------------
-    $('sound').onclick = () => {
-      sound = !sound;
-      $('sound').textContent = sound ? '🔊 เสียงเปิด' : '🔇 เสียงปิด';
-      if (sound) audioInit();
-    };
-
     $('start').onclick = async () => {
-      audioInit();
       if (!(await askMotion())) {
         $('introNote').textContent = 'ไม่ได้รับสิทธิ์เซนเซอร์การเคลื่อนไหว iPhone: ตั้งค่า › แอป › Safari › เปิด "การเคลื่อนไหวและการวางแนว" แล้วโหลดหน้านี้ใหม่';
         return;
@@ -686,11 +606,10 @@
       $('play').hidden = $('panel').hidden = false;
       connect();
       setInterval(tick, 30);
-      tone(500, 1000, 0.08, 0.2); // hello blip
       vibe(60);
     };
 
-    $('feel').textContent = VIB ? 'สั่น + เสียง' : IOS ? 'iPhone สั่นจากเว็บไม่ได้ ใช้เสียงแทน' : 'ใช้เสียง';
+    $('feel').textContent = `${VIB ? 'สั่น' : 'มือถือนี้สั่นจากเว็บไม่ได้'} · เสียงดังที่คอมพิวเตอร์`;
     if (!hostId) $('noPair').hidden = false;
     else if (!window.isSecureContext) {
       $('noPair').hidden = false;
