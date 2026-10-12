@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "น้ำขึ้นให้รีบตัก",
   "version": "1.0",
-  "description": "Every prompts you send uses water! and the data centers caused global warming.",
+  "description": "A Chrome extension from “Stupid Hackathon in Thailand X” that makes you think twice before every AI usage",
   "permissions": [
     "storage",
     "offscreen"
