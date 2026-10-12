@@ -10,7 +10,7 @@ This document covers the whole path: pairing, the connection, the HID protocol, 
 |------|------|
 | `src/joycon/joycon.js` | The driver. `class JoyCon`: WebHID I/O, subcommands, IMU parsing, gyro bias, scoop state machine, HD-rumble encoder and haptic mixer. Also the constants `SCOOP_MIN`, `SCOOP_MAX`, `DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT`, `ACC`, `GYR`, `NAMES`. No DOM. |
 | `src/offscreen/joycon.js` | The host. Owns `joyconSettings`, the `pads` map, `waterLevel()` and `scoopWater()`. Opens devices, listens for connect/disconnect, answers the popup's `joycon` messages. |
-| `src/offscreen/sim.html` | Offscreen document. Loads `config.js`, `sim.js`, `offscreen/sim.js`, then `joycon/joycon.js`, then `offscreen/joycon.js`. All are classic scripts, so they share one global scope (the host reads `target` from `offscreen/sim.js` directly). |
+| `src/offscreen/sim.html` | Offscreen document. Loads `config.js`, `sim.js`, `offscreen/sim.js`, `offscreen/sound.js`, `joycon/joycon.js`, `offscreen/joycon.js`, then the phone host. All are classic scripts, so they share one global scope (the host reads `target` from `offscreen/sim.js` directly). |
 | `src/offscreen/sim.js` | The shared water simulation. Receives the scoop through storage and takes the water out of the height field around a random spot. |
 | `src/background.js` | Service worker. Creates the offscreen document, relays `chrome.storage` to it (offscreen documents only get `chrome.runtime`), and writes the scoop to storage for it. |
 | `src/popup/popup.html`, `popup.js` | Toolbar popup. Drain picker (**ตักน้ำออก**), the pair button, live controller status, rumble strength and direction settings. |
@@ -166,7 +166,7 @@ A state machine: `ready → fill → lift → cool → ready`.
 
 ## From scoop to less water on screen
 
-1. **`scoopWater(amount)`** (`offscreen/joycon.js`): clamps `amount` to `target`, lowers `target` right away, and sends `{ type: 'setStorage', values: { target, scoop: { amount, t: Date.now() } } }` to `background.js`. It returns the amount taken. `t` makes each `scoop` value unique, so two equal scoops in a row still fire a storage change.
+1. **`scoopWater(amount)`** (`offscreen/joycon.js`): clamps `amount` to `target`, lowers `target` right away, schedules the splash sound on the computer (`sfx.splash` in `offscreen/sound.js`, `BUCKET_DIP` later so it lands with the 🪣), and sends `{ type: 'setStorage', values: { target, scoop: { amount, t: Date.now() } } }` to `background.js`. It returns the amount taken. `t` makes each `scoop` value unique, so two equal scoops in a row still fire a storage change.
 2. **`background.js`** writes both keys to `chrome.storage.local`.
 3. **Storage change fan-out**:
    - Every tab's `core.js` gets the new `target`. The badge on the toolbar icon updates.

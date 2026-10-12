@@ -1,6 +1,6 @@
 # shitx-flood
 
-A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. From 45% the page audio gets muffled and quieter until it sounds fully underwater. At 80% the whole chat input block on supported chat sites (box, attach, model picker, mic, send) stops taking clicks and typing. At 100% you can't click anything until you get the water out. There are three ways to do that, all in the extension's toolbar popup: **📷 tilt the laptop** so it pours off the edge (the webcam notices), **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water, or **📱 scoop it out with your phone** (scan a QR code; it vibrates on Android and makes water sounds on any phone).
+A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (claude.ai, ChatGPT, Gemini, and a few others) makes water rise on **every website you have open**. Better models flood faster. From 45% the page audio gets muffled and quieter until it sounds fully underwater. At 80% the whole chat input block on supported chat sites (box, attach, model picker, mic, send) stops taking clicks and typing. At 100% you can't click anything until you get the water out. There are three ways to do that, all in the extension's toolbar popup: **📷 tilt the laptop** so it pours off the edge (the webcam notices), **🎮 scoop it out with a Nintendo Joy-Con**, which rumbles like a bucket of water, or **📱 scoop it out with your phone** (scan a QR code; it vibrates on Android, and the water sounds play on the computer).
 
 ## Install (dev)
 
@@ -16,11 +16,12 @@ A joke Chrome extension (Manifest V3). Every prompt you send to an AI chat (clau
 | Multiplier | A `💧 ×N` badge sits right after the model selector. N = model × effort, read from the selector's label. It multiplies both how much water a prompt adds and the rise speed (`0.1` viewport heights/sec × N). |
 | Shared level | The level is in `chrome.storage.local` (`target`, `speed`). Every tab listens to `chrome.storage.onChanged`, so all sites flood together. A newly loaded page starts at the current level. The toolbar icon shows the level as a badge. |
 | Water physics | The screen is a 2D tank simulated with the shallow-water equations (`src/sim.js`). One simulation runs for every tab, in the extension's offscreen document (`src/offscreen/`), in a fixed 1600×900 tank. Each visible tab gets its height field ~60 times a second and stretches it to its own window, so all tabs show the same waves. Water rises, sloshes, and slopes when the screen tilts. The page behind it is blurred, more where it's deeper. |
-| Pouring mice | When water is at least 60% full and starts pouring, a stream of 24 🐭 runs from left to right across the screen. |
 | Muffled audio | From **45% to 70%** (then held), page `<audio>`/`<video>` goes through a Web Audio lowpass filter (cutoff 20 kHz → 300 Hz) and a volume fade down to `MUFFLE_MIN_VOLUME` (60%), so it sounds underwater but never goes silent. |
 | Water alerts | A message box at the top of the page when the water rises past **45%** ("ระดับน้ำเริ่มเพิ่มขึ้นสูงเรื่อยๆ เริ่มไม่ได้ยินเสียงแล้ว") and **80%** ("คุณใช้เยอะเกินไป โลกร้อนจนน้ำท่วมจนแป้นพิมพ์จมไปในน้ำแล้ว!"). It starts with 🔇 (45%) or 🌊 (80%), slides in, and slides away by itself after ~6 s. Each shows once, in the tab you're looking at, and again only after the level drops back below it (`alertsShown` in storage, `src/effects/alerts.js`). |
 | Chat box lock | From **80%**, the whole input block on supported chat sites (the chat box plus its buttons: attach, model picker, mic, send…) is greyed out and refuses clicks, focus, typing, paste and drop. Clicking anywhere on it shows a red, shaking popup: "⌨️ น้ำเข้าแป้นพิมพ์หมดแล้ว เข้าไม่ได้แล้ว!" (~3 s). It unlocks when the water drops below 80%. |
-| 100% lockout | The overlay swallows all clicks and shows **"กรุณาเทน้ำออกจากจอ"** ("please pour the water out of the screen"). Dragging on the page does nothing. The toolbar popup still works, since it's browser UI. |
+| 100% lockout | The overlay swallows all clicks and flashes a big red **"🚨 พอแล้ว เลิกแล้ว ไม่เอาแล้ว 🚨"** / **"น้ำท่วมจอไปหมดแล้ว"** (1.5 flashes a second). Dragging on the page does nothing. The toolbar popup still works, since it's browser UI. |
+| Drained | When the last water leaves the screen, a rainbow **"น้ำหมดแล้วทำงานต่อได้"** shows for 5 s (`src/effects/drained.js`). |
+| Sounds | Played by the extension's offscreen document (`src/offscreen/sound.js`), once for the whole browser and never muffled: `assets/alarm.mp3` loops while the screen is full, `assets/yay.mp3` plays once when it's empty again, plus the scoop sounds (splash for every scoop; glugs, bubbles, drips and the spill for the phone). Volume: `SOUND_VOLUME`. |
 | Drain controls (popup, in Thai) | In the toolbar popup, **one at a time**: pick **📷 เทน้ำออก** (tilt cam), **🎮 ตักน้ำออก** (Joy-Con) or **📱 ตักด้วยมือถือ** (phone) (click the chosen one again to turn it off). The choice is stored as `drainMode` (`cam` / `joycon` / `phone`). Picking the tilt cam starts it on the current tab (live preview, status, **Calibrate level**). Picking the Joy-Con or phone stops the tilt cam in every tab. A connected Joy-Con or phone stays connected while another drain is chosen, but ignores motion and stays silent. The Joy-Con panel shows pairing, live status and rumble settings; the phone panel shows a QR code, the phone's live status and bucket, and vibration settings. |
 
 ### Supported chat sites
@@ -63,29 +64,31 @@ Click the toolbar icon → **ตักน้ำออก** → **🎮 เชื�
 
 1. Connect the Joy-Con in your OS Bluetooth settings, then press **🎮 เชื่อมต่อจอยคอน** (Chrome/Edge desktop only; L, R and Pro Controller work, and two at once is fine).
 2. **Dip**: point the top (shoulder-button end) down past 35°. The bucket fills, faster in deep water. You feel it glug: low rumble with random glugs and bubble ticks.
-3. **Scoop**: flip it up past 30°. Each scoop takes a random 5–10% of the screen from every tab, and you feel a splash followed by droplets. The shared simulation picks a random spot, every visible page shows a 🪣 dipping in there, and the water comes out around it, leaving a dent that refills as waves.
+3. **Scoop**: flip it up past 30°. Each scoop takes a random 5–10% of the screen from every tab, and you feel a splash followed by droplets. The shared simulation picks a random spot, every visible page shows a 🪣 dipping in there with a splash sound, and the water comes out around it, leaving a dent that refills as waves.
 4. Too slow (over 1.5 s between leaving the water and flipping up) and the water spills back, with a spill rumble.
 
 When idle, moving the controller makes a sloshing rumble that scales with the water level. With no water left, dipping just gives a dry scrape. Settings: rumble strength, **Flip tip direction** (if dip/flip feel reversed).
 
 ### 3. Scoop with your phone
 
-The same dip-and-flip as the Joy-Con, with a phone as the bucket. Click the toolbar icon → **📱 ตักด้วยมือถือ** → scan the QR code with the phone's camera → tap **เริ่มตักน้ำ** on the phone (this asks for motion access on iPhone, unlocks sound and keeps the screen on).
+The same dip-and-flip as the Joy-Con, with a phone as the bucket. Click the toolbar icon → **📱 ตักด้วยมือถือ** → scan the QR code with the phone's camera → tap **เริ่มตักน้ำ** on the phone (this asks for motion access on iPhone and keeps the screen on).
 
 1. Hold the bottom of the phone like a ladle.
-2. **Dip**: point the top of the phone down past 35°. The bucket on the phone's screen fills, faster in deep water, with glug and bubble sounds (and vibration on Android).
-3. **Scoop**: flip it up past 30° within 1.5 s. A full bucket takes 6% of the screen from every tab, with a splash, and every visible page shows the 🪣 like a Joy-Con scoop.
-4. Too slow and it spills back (spill sound, long buzz, "ช้าไป น้ำหกหมด!").
+2. **Dip**: point the top of the phone down past 35°. The bucket on the phone's screen fills, faster in deep water, with glug and bubble sounds from the computer (and vibration on Android).
+3. **Scoop**: flip it up past 30° within 1.5 s. A scoop takes up to 10% of the screen (`fill × SCOOP_MAX`, so a full bucket is 10%) from every tab, and every visible page shows the 🪣 like a Joy-Con scoop, with a splash sound from the computer.
+4. Too slow and it spills back (spill sound on the computer, long buzz and "ช้าไป น้ำหกหมด!" on the phone).
 
-The phone screen shows the bucket, a tip-angle gauge (blue = dip zone, green = flip zone), a countdown bar while lifting, the water level on the computer and the scoop count. The popup shows the phone, its bucket and state, and the settings: vibration/sound strength and **Flip tip direction**.
+The phone screen shows the bucket, a tip-angle gauge (blue = dip zone, green = flip zone), a countdown bar while lifting, the water level on the computer and the scoop count. The popup shows the phone and whether it's connected, and the settings: vibration strength and **Flip tip direction**.
+
+All scoop sounds come from the computer, not the phone: `src/offscreen/sound.js` runs in the offscreen document (no visible tab or page click needed). Every Joy-Con or phone scoop splashes, timed with the 🪣 hitting the water; for the phone it also plays glugs and bubbles while filling, drips while lifting and the spill, from the phone's `st` updates. Volume: `SOUND_VOLUME` at the top of that file.
 
 How it's wired:
 
-- **Phone page** (`phone/index.html`): has to be served over **https** (motion sensors need a secure context), so it can't come from the extension itself. By default the QR points to this repo's GitHub Pages site, `https://qwrtsdev.github.io/sht10-namkhunhaireeptak/phone/` (Settings → Pages → deploy from the branch, root folder). To host it somewhere else, change **ที่อยู่หน้าเว็บสำหรับมือถือ** in the phone panel (stored as `phoneUrl`). The page loads PeerJS from `../src/vendor/`, so host the whole repo, not just `phone/`.
+- **Phone page** (`phone/index.html`): has to be served over **https** (motion sensors need a secure context), so it can't come from the extension itself. By default the QR points to this repo's GitHub Pages site, `https://qwrtsdev.github.io/sht10-namkhunhaireeptak/phone/` (Settings → Pages → deploy from the branch, root folder). To host it somewhere else, change `PHONE_URL` in `src/popup/popup.js`. The page loads PeerJS from `../src/vendor/`, so host the whole repo, not just `phone/`.
 - **Link**: WebRTC through PeerJS (bundled in `src/vendor/peerjs.min.js`, v1.5.4; MV3 doesn't allow remote scripts), using the free PeerJS cloud server for the handshake. The computer side lives in the offscreen document (`src/offscreen/phone.js`), so it keeps working with the popup closed. Its id is fixed (`phoneId` in storage), so the QR code doesn't change and the phone reconnects by itself after a dropout. It registers with the server the first time the phone drain is chosen. Both devices need internet; very strict networks (some school/office Wi-Fi) can block WebRTC.
 - **Gesture on the phone**: the phone runs the scoop state machine itself (a copy of `JoyCon.gesture`), so feedback has no network lag. The thresholds (`DIP_DEG`, `LIFT_DEG`, `LIFT_TIMEOUT`) come from `src/joycon/joycon.js` in the `cfg` message, so both scoop the same way. Pitch = asin(sin β) from `deviceorientation`, which works the same on iOS and Android.
 - **Messages** (JSON): computer → phone: `cfg` (thresholds, gain, invert, enabled), `lv` (water level, ~4/s and at least every 2 s as a heartbeat), `got` (how much a scoop took). Phone → computer: `hi` (device name, iOS, can vibrate), `st` (state, fill, pitch, ~10/s), `scoop` (`fill` 0–1; the computer takes `fill × SCOOP_MAX` through the same `scoopWater()` as the Joy-Con). Each side drops the link after ~7–10 s of silence and the phone reconnects.
-- **iPhone**: Safari has no Vibration API, so the iPhone gives sound only (Web Audio, with `navigator.audioSession.type = 'playback'` so it plays with the silent switch on). If motion access was denied: Settings › Apps › Safari › Motion & Orientation Access.
+- **iPhone**: Safari has no Vibration API, so the iPhone gives no feedback of its own besides the screen; the sounds play on the computer. If motion access was denied: Settings › Apps › Safari › Motion & Orientation Access.
 
 ## Files
 
@@ -105,14 +108,14 @@ src/
     scoop.js             draws the 🪣 for each Joy-Con scoop (the shared sim takes the water)
     percent.js           "💧 NN%" label
     lockout.js           100% click block + flashing red warning
-    drained.js           rainbow "น้ำหมดแล้ว" for 2 s when the water runs out
+    drained.js           rainbow "น้ำหมดแล้วทำงานต่อได้" for 5 s when the water runs out
     alerts.js            message boxes at 45% and 80%
     muffle.js            lowpass audio muffling
   chat.js                chatSite(): shared prompt detection + speed badge
   systems/
     claude.js, chatgpt.js, gemini.js, others.js   one chatSite() call per site
   background.js          service worker: level badge; creates the offscreen document and relays chrome.storage to and from it
-  offscreen/             offscreen document: the one shared simulation (steps sim.js, streams it to tabs) + the Joy-Con host (joycon.js)
+  offscreen/             offscreen document: the one shared simulation (steps sim.js, streams it to tabs) + the Joy-Con host (joycon.js), the phone host (phone.js) and the scoop sounds (sound.js)
                          + the phone link (phone.js)
   popup/                 toolbar popup: level, 📷 tilt cam controls, 🎮 Joy-Con pairing + live status + rumble settings,
                          📱 phone QR + live status + settings, "ขอลองโกงหน่อย" view (set the water to any % or drain it all)
@@ -157,6 +160,6 @@ phone/
 - **Audio muffling misses some sound:** cross-origin media without CORS (skipped on purpose; it would go silent), anything before the first user interaction (autoplay policy), the page's own Web Audio, shadow-DOM media, and iframes (the script runs in the top frame only).
 - **Lockout only blocks the mouse.** Keyboard and mouse-wheel scrolling still work at 100%.
 - **Shared sim tank is 1600×900.** Tabs stretch it to their own size, so in a window with a very different shape the waves look squashed. The surface can stutter slightly, because tabs draw the latest update without interpolating.
-- **Phone**: needs the phone page on https and internet on both devices (PeerJS cloud server + STUN/TURN). The phone has to stay on the page with the screen on (a wake lock is requested). iPhone can't vibrate from a web page, so it only plays sounds.
+- **Phone**: needs the phone page on https and internet on both devices (PeerJS cloud server + STUN/TURN). The phone has to stay on the page with the screen on (a wake lock is requested). iPhone can't vibrate from a web page, so it gives no haptic feedback.
 - **Testing:** verified in Chromium with Playwright against mock pages that use each site's selectors, a synthetic webcam video (a scene rotated 20° → estimated +18.5°), a fake WebHID Joy-Con. Not yet tested on the live chat sites or with a real Joy-Con.
   The phone drain was tested with the unpacked extension (popup opened as a tab) plus a second browser emulating a Pixel 7 and an iPhone 14 at `http://localhost:8080/phone/#pair=<id>` (localhost counts as https), a local PeerJS server (`peer` npm package) patched in for the cloud one, and synthetic `deviceorientation` events: dip → flip took 6%, a slow lift spilled and took nothing, switching to the Joy-Con turned the phone off, Android vibration fired, and the popup showed the QR again after the phone left. Not yet tested on a real phone.
