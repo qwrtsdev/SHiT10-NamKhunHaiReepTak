@@ -14,6 +14,7 @@ function scoopWater(amount) {
   amount = Math.min(amount, target);
   if (amount <= 0) return 0;
   target -= amount;
+  sfx.splash(Math.min(1, amount / SCOOP_MAX), BUCKET_DIP); // when the 🪣 in the tabs hits the water
   chrome.runtime.sendMessage({ type: 'setStorage', values: { target, scoop: { amount, t: Date.now() } } }).catch(() => {});
   return amount;
 }
