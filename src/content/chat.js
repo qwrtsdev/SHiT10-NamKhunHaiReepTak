@@ -19,7 +19,7 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
   badge.append('💧', badgeText);
 
   const first = (selectors) => selectors.map((s) => document.querySelector(s)).find(Boolean);
-  // Every model/effort label found (ChatGPT splits them: model in the header, "Think" in the composer).
+  // every model/effort label found (ChatGPT splits them: model in the header, "Think" in the composer).
   const modelLabel = () => [...model.map((s) => document.querySelector(s)?.textContent ?? ''), extraLabel()].join(' ').toLowerCase();
   const multiplier = (label = modelLabel()) => {
     const pick = (table) => Object.entries(table).find(([k]) => label.includes(k))?.[1] ?? 1;
@@ -53,7 +53,7 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
     setTimeout(() => splashBadge(5, 14), 720);
   }
 
-  // Fixed on <body>, so the chat box can't clip the droplets.
+  // fixed on <body>, so the chat box can't clip the droplets.
   function splashBadge(count, power) {
     const r = badge.getBoundingClientRect();
     if (!r.width) return;
@@ -72,7 +72,7 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
     }
   }
 
-  // Keep the badge in place; the apps re-render, so re-check on DOM changes.
+  // keep the badge in place; the apps re-render, so re-check on DOM changes.
   let lastLabel = '';
   function placeBadge() {
     const anchor = first(badgeAt.at);
@@ -90,7 +90,7 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
 
   const promptLength = (el) => [...(el?.value ?? el?.textContent ?? '').trim()].length;
 
-  // Enter can also trigger a click on the send button; count one prompt either way.
+  // enter can also trigger a click on the send button; count one prompt either way.
   let lastSent = 0;
   function sent(chars) {
     if (!chars || performance.now() - lastSent < 600) return;
@@ -106,14 +106,14 @@ function chatSite({ rates, composer, send, model = [], badgeAt = { at: model, wh
   }).observe(document.body, { childList: true, subtree: true, characterData: true });
   placeBadge();
 
-  // Capture phase: runs before the app's editor (ProseMirror / Quill / React) clears the input.
+  // capture phase: runs before the app's editor (ProseMirror / Quill / React) clears the input.
   document.addEventListener('keydown', (e) => {
     const input = e.target.closest?.(composer);
     if (!input || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
     sent(promptLength(input));
   }, true);
 
-  // Found from the composer each time: the apps re-render it.
+  // found from the composer each time: the apps re-render it.
   const lockStyle = document.createElement('style');
   lockStyle.textContent = '[data-water-locked] { opacity: .4 !important; } ' +
     '[data-water-locked], [data-water-locked] * { cursor: not-allowed !important; }';

@@ -1,10 +1,10 @@
-// Effects: effects.push(fn); fn(f) runs every frame in manifest order,
+// effects: effects.push(fn); fn(f) runs every frame in manifest order,
 // with f = { ctx, t, dt, d, w, h } (t/dt seconds, d devicePixelRatio, w/h canvas size in device px).
 // water.level is the volume actually on screen (it trails water.target while rising or draining).
 
 const water = { level: 0, target: 0 };
 const effects = [];
-// Shared events: waterHooks.rise.push(fn(amount)) when the level goes up,
+// shared events: waterHooks.rise.push(fn(amount)) when the level goes up,
 // waterHooks.scoop.push(fn({ x, amount })) when a scoop starts (x = 0–1 across the screen).
 const waterHooks = { rise: [], scoop: [] };
 
@@ -20,7 +20,7 @@ function resize() {
 }
 
 function frame(now) {
-  // Clamp dt: a backgrounded tab resumes without a huge physics jump.
+  // clamp dt: a backgrounded tab resumes without a huge physics jump.
   const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 0;
   lastFrame = now;
   const { width: w, height: h } = canvas;
@@ -30,7 +30,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// Text outlined in white so it reads on light and dark pages. size is in CSS px.
+// text outlined in white so it reads on light and dark pages. size is in CSS px.
 function outlinedText({ ctx, d }, text, x, y, size, align = 'start', fill = 'rgb(15,60,130)') {
   ctx.font = `bold ${size * d}px system-ui, sans-serif`;
   ctx.textAlign = align;
@@ -76,7 +76,7 @@ async function simConnect() {
   if (document.hidden) simDisconnect();
 }
 
-// Hidden tabs don't draw, so they don't need the stream.
+// hidden tabs don't draw, so they don't need the stream.
 function simDisconnect() {
   simPort?.disconnect();
   simPort = null;
@@ -108,5 +108,5 @@ chrome.storage.onChanged.addListener((c) => {
 
 function flood(chars, multiplier = 1) {
   const amount = chars * WATER_PER_CHAR * multiplier;
-  chrome.storage.local.set({ target: Math.min(1, water.target + amount), speed: RISE_SPEED * multiplier });
+  chrome.storage.local.set({ target: Math.min(1, water.target + amount) });
 }
