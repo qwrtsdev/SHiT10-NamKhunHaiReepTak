@@ -9,7 +9,7 @@ const onStorage = (fn) => chrome.runtime.onMessage.addListener((m) => {
 
 const TICK = 16; // ms between steps / broadcasts
 const ports = new Set();
-let ready = false, target = 0, speed = RISE_SPEED, held = 0;
+let ready = false, target = 0, held = 0;
 let tiltTarget = 0, tiltFrom = null;
 let written = -1, drainTimer = 0, lastTick = performance.now(), wasIdle = false;
 
@@ -17,13 +17,11 @@ simInit(0, SIM_W, SIM_H);
 
 stored.then((s) => {
   target = s.target ?? 0;
-  speed = s.speed ?? RISE_SPEED;
   simInit(target, SIM_W, SIM_H); // already flooded: start at the current level, no re-rise
   ready = true;
 });
 
 onStorage((m) => {
-  if (m.speed != null) speed = m.speed;
   // Ignore the echo of our own drain write: we've poured more since then.
   if (m.target != null && m.target !== written) target = m.target;
   if (m.scoop) scoop(m.scoop.amount);
@@ -76,7 +74,7 @@ function scoop(amount) {
 function step(dt) {
   sim.tilt += (tiltTarget - sim.tilt) * Math.min(1, dt * 6);
   const level = simVolume(), goal = Math.min(1, target + held);
-  if (level < goal) simAdd(Math.min(speed * dt, goal - level));
+  if (level < goal) simAdd(Math.min(RISE_SPEED * dt, goal - level));
   else if (level > goal + 1e-4) simRemove(Math.min(DRAIN_SPEED * dt, level - goal));
   const poured = simStep(dt, true);
   if (poured > 0) drain(poured);

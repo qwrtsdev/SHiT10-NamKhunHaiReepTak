@@ -2,7 +2,7 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Water per prompt = characters × WATER_PER_CHAR × the model/effort multiplier (100 chars at ×1 = 10%).
 const WATER_PER_CHAR = 0.001;
-const RISE_SPEED = 0.1; // viewport heights per second, at ×1
+const RISE_SPEED = 0.1; // viewport heights per second, the same for prompts and cheats
 const DRAIN_SPEED = 0.35; // how fast a tab follows a level drop made elsewhere (viewport heights/sec)
 
 // Better model / higher effort = faster rise. Each site's model selector label is lowercased and
